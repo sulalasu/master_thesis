@@ -1,0 +1,211 @@
+%% LaTeX template for diploma thesis at the 
+%% department of civil and environmental engineering of TU Wien
+%% Following files have to be in the same directory:
+%% TUWBUIDADISS.sty and tuw-bui-logo-2022.pdf
+%% 
+%% created by Christian Schranz and Sebastian Pech
+%% CEE Computer Lab & Digital Building Process
+%% date: 2022-10-01
+%% tested for pdflatex
+%%
+%% Downlaoded 05.2025 from https://gitlab.tuwien.ac.at/cee-latex/latex-vorlagen/-/archive/main/latex-vorlagen-main.zip?path=DA-DISS
+%% Own adjustments
+
+\pdfminorversion=7
+%%
+%% ========== TITLE INFORMATION ==========
+%%
+%% Thesis type: DA ... diploma thesis, DISS ... PhD thesis
+\newcommand{\thesistype}{DA} 
+%%
+%% language of your thesis: de-AT ... German, en-US or en-UK ... English
+\newcommand{\thesislanguage}{en-US}
+%% thesistitle is the title in the language of the thesis
+%% if thesislanguage is English (en-US or en-UK), the title has to be in English
+%% if thesislanguage is German (de-AT), the title has to be in German
+\newcommand{\thesistitle}{Blood demand prediction}
+%% thesistitletranslated is the title either in english or german
+%% if thesislanguage is English, the translated title has to be in German
+%% if thesislanguage is German, the translated title has to be in English
+\newcommand{\thesistitletranslated}{Blutverbrauchsvorhersage}
+%%
+%% ========== AUTHOR INFORMATION ==========
+%%
+%% if you have a preceding title (like Ing.) 
+%% you can insert it in titelvorgestellt
+%% if you don't have on, delete "Ing." in titelvorgestellt
+\newcommand{\titelvorgestellt}{}
+\newcommand{\authorname}{Lukas Sattler}
+\newcommand{\titelnachgestellt}{, BSc}
+%% insert your Matritelnummer
+\newcommand{\MatrNr}{c2310542016}
+%% insert your gender: M ... male, F ... female
+\newcommand{\gender}{M}
+%%
+%% ========== SUPERVISOR and GUTACHTER INFORMATION ==========
+%%
+%% The field "supervisor" includes your supervisor(s)/Betreuer:innen
+%% Use this field for Diploma thesis as well as PhD thesis
+%%
+\newcommand{\supervisor}{Dr. med. Dr. med. univ. \textbf{Alexander Tolios}, Msc\newline
+% Dipl.-Ing. Dr.-Ing. \textbf{forename surname}, BSc\newline
+Universitätsklinik für Transfusionsmedizin und Zelltherapie \newline
+% Forschungsbereich \newline
+Medizinische Universität Wien \newline
+Währinger Gürtel 18–20, 1090 Wien, Österreich
+}
+%%
+%% \gutachterA and \gutachterB are only relevant for PhD thesis 
+%% for DA use the commands \newcommand{\gutachterA}{} and \newcommand{\gutachterB}{} and delete the lines above
+%%
+%% begin gutachter
+% \newcommand{\gutachterA}{Prof. Dipl.-Ing. Dr.techn. \textbf{forename surname}\newline
+% Institut für YYY \newline
+% Forschungsbereich \newline
+% Technische Universität Wien \newline
+% Karlsplatz 13/YYY, 1040 Wien, Österreich
+% }
+% \newcommand{\gutachterB}{Prof. Dipl.-Ing. Dr.techn. \textbf{forename surname}\newline
+% Institut für YYY \newline
+% Forschungsbereich \newline
+% Technische Universität Wien \newline
+% Karlsplatz 13/YYY, 1040 Wien, Österreich
+% }
+\newcommand{\gutachterA}{}
+\newcommand{\gutachterB}{}
+%% end gutachter
+%%
+
+%% insert date of your thesis
+\date{September 2025}
+%
+% \documentclass[11pt,twoside=true]{article}
+\documentclass[11pt,oneside]{scrreprt}
+%
+%% consider that the input encoding of all should be utf8 
+%% if you use the follwing setting, otherwise change it
+\usepackage[utf8]{inputenc}
+
+\usepackage{./style/THESIS_STYLE}
+%% this style includes already some packages which have been very useful 
+%% in the last diploma or doctoral theses
+%%
+%% fontenc[T1], lmodern, microtype, babel[englisch,ngerman], graphicx, 
+%% geometry with all margins or areaset (choose what you like)
+%% mathtools, amssymb, xfrac, siunitx, booktabs,
+%% url, xcolor[table], textcomp, marvosym, pifonts, pdfpages, ragged2e, 
+%% tabularx, longtable, threeparttable, csquotes, eurosym, enumitem, 
+%% multirow, setspace, listings, scrlayer-scrpage with header/footline
+%% pdfx (including hyperref)
+
+\raggedbottom 
+%% prevents the expansion of the text till the end of the page (if you like)
+%\setcapindent{0em} %% influences captions layout
+%%
+%% ========== Key Words ==========
+%%
+%% Geben Sie beim Befehl \Keywords einige Key Words ein und 
+%% trennen Sie diese mit dem Befehl \sep%%
+\begin{filecontents}[overwrite]{\jobname.xmpdata}
+\Title{\thesistitle}
+\Author{\authorname}
+\Language{\thesislanguage}
+\Keywords{master thesis\sep machine learning\sep blood demand \sep prediction}
+\Publisher{FH Campus Wien}
+\end{filecontents}
+
+%% use biblatex and biber for bibliography
+%% customize options as you like
+%% style=numeric-comp ... [1]
+%% style=authoryear ... Mang 1998 / use \textcite{} ... Mang (1998)
+%%
+\usepackage[style=numeric-comp,backend=biber,maxcitenames=2]{biblatex}
+\ExecuteBibliographyOptions{%
+  giveninits=true,maxbibnames=99}%
+\DefineBibliographyStrings{ngerman}{andothers={et\;al\adddot},
+urlseen = {Zugriff am}}
+\addbibresource{./other/bibliography.bib}
+
+
+%% ===== additional packages to the ones already loaded ==============
+\usepackage{acro}
+\input{./other/Acronyms}
+
+%% Einstellungen für Zeilenumbrüche von Weblinks im url-Paket
+\setcounter{biburllcpenalty}{9000}% Kleinbuchstaben
+\setcounter{biburlucpenalty}{9000}% Großbuchstaben
+%% Quelle: https://texwelt.de/fragen/7008/zeilenumbruche-in-bibliografielinks
+
+%% ===== additional settings =============
+\setcounter{secnumdepth}{3}
+\sisetup{output-decimal-marker = {,},
+range-phrase = --,
+group-separator = {~},
+per-mode = symbol, 
+list-final-separator={ und }}
+
+\graphicspath{{Bilder/}}
+
+%% examples for useful shortcuts in German
+\newcommand{\zB}{\mbox{z.\,B.}\xspace}
+\newcommand{\Name}[1]{\textsc{#1}}
+
+\newcommand{\vKTxv}{\mathbf{v}_1^T\tilde{\mathbf{K}}_{T},_{\xi}\mathbf{v}_1}
+\newcommand{\vKTxxv}{\mathbf{v}_1^T\tilde{\mathbf{K}}_{T},_{\xi\xi}\mathbf{v}_1}
+
+% activate for double space between the lines (correction mode) 
+%\doublespacing
+
+\begin{document}       %% start of the document
+\maketitle             %% places the title with above information
+
+% \cleardoublepage
+% \selectlanguage{ngerman}  %% for german abstract
+% \include{./sections/00_Abstract}      %% german abstract (about 1 page)
+
+\cleardoublepage
+\selectlanguage{english}    %% for english abstract
+\include{./sections/00_Abstract}         %% english abstract (about 1 page)
+
+%\cleardoublepage
+\selectlanguage{english} 
+\pagestyle{scrheadings} 
+
+\tableofcontents
+
+%% now include all chapter files -- use the include-command (takes care
+%% that all not yet output floats are output before the new file)
+%%
+\include{sections/01_Introduction}
+\include{sections/02_Methods}
+\include{sections/02_Methods}
+\include{sections/04_Discussion}
+\include{sections/05_Conclusion}
+%\include{02-Grundlagen}
+%etc.
+
+%% insert bibliography, adds chapter heading with chapter number
+\printbibliography
+
+
+\minisec{Zitierbeispiele entsprechend DIN ISO 690}
+
+Die DIN~ISO~690~\cite{DIN-ISO-690:2013} gibt Hinweise zur vollständigen Quellenangabe.
+Das folgende Beispiele ist dieser Norm entlehnt und angepasst:
+%
+\begin{quotation}
+Einige Standardwerke \cite{Kohm:20,Voss:22} geben einen guten Überblick über \LaTeX{}.
+\textcite{Kohm:20} hat die Klassen der KOMA-Script-Reihe entwickelt, die die \enquote{typografischen Gepflogenheiten eines europäischen Layouts berücksichtigen}~\cite[S.~64]{Voss:22}.
+Daneben empfehlen wir -- nona -- unser Buch zu \LaTeX{}, Excel und Word: \textcite{Schranz:22}.
+\end{quotation}
+
+Nun der selbe Text in Harvard Citation Style (jedoch ohne \LaTeX-Befehle -- diese wären die selben wie zuvor, es müsste nur der Zitierstil geändert werden):
+%
+\begin{quotation}
+Einige Standardwerke (Kohm 2020, Voss 2022) geben einen guten Überblick über \LaTeX{}.
+Kohm (2020) hat die Klassen der KOMA-Script-Reihe entwickelt, die die \enquote{typografischen Gepflogenheiten eines europäischen Layouts berücksichtigen}~(Voss 2022, S.~64).
+Daneben empfehlen wir -- nona -- unser Buch zu \LaTeX{}, Excel und Word: Schranz et al. (2022).
+\end{quotation}
+
+
+\end{document}
