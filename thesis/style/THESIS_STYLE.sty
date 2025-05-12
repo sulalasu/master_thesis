@@ -11,37 +11,16 @@
 
 \ProvidesPackage{THESIS_STYLE}[2025/05/01]
 
-\addtokomafont{captionlabel}{\bfseries}
-
-\KOMAoptions{chapterprefix=true}
-\KOMAoptions{parskip=false,headinclude=true,
-captions=tableheading,numbers=noenddot}
 
 \renewcommand*{\chaptermarkformat}{%
   \thechapter\autodot\enskip%
 }  % no "Chapter" (or "Kapitel" in header)
 
 
-\RequirePackage[T1]{fontenc}
-\RequirePackage{lmodern}
 \RequirePackage[babel]{microtype}     % improves the micro-typographic layout
 \RequirePackage[english]{babel} %% englisch and austrian language %%,ngerman
-\PassOptionsToPackage{table}{xcolor}
-% \RequirePackage{xcolor} %% improvement to the color package, included by pdfx 
-% muss jetzt vor pdfx geladen werden
 
 
-%% Package pdfx derzeit fehlerhaft implementiert ... daher pdfx auskommentiert und stattdessen hyperref geladen
-
-\input{glyphtounicode.tex}    %Part of modern distribution
-\input{glyphtounicode-cmr.tex}     %Additionnal glyph: You must grab it from pdfx package
-\pdfgentounicode=1
-\pdfinterwordspaceon
-%\RequirePackage[a-2u,pdf17]{pdfx}
-\pdfomitcharset 1
-\RequirePackage{colorprofiles}
-\RequirePackage{cmap}
-\RequirePackage{hyperref}
 \hypersetup{ % Setzt einige Werte die in den Eigenschaften des PDF gespeichert sind.
   bookmarksnumbered,
 %   % pdfdisplaydoctitle = true,
@@ -51,31 +30,15 @@ captions=tableheading,numbers=noenddot}
    urlcolor={black}
 }
 
-%% lines at - see: http://www.komascript.de/chapterwithlines
-%\renewcommand{\chapterlineswithprefixformat}[3]{%
-%  {\raggedleft #2}\nobreak
-%  \rule[.5\baselineskip]{\textwidth}{1pt}\\*
-%  #3\par\nobreak
-%  \rule[-.5\baselineskip]{\textwidth}{1pt}%
-%}
-%% Linien bei Überschriften - Ende
-
 %% Absatzkontrolle
 \clubpenalty10000
 \widowpenalty10000
 \displaywidowpenalty=10000
 
-\RequirePackage{graphicx} 
-
-%% 2 definitions of margins - choose the one you like
 %% new definitions of margins - variant 1
 \RequirePackage[left=2.5cm,right=2.5cm,top=2.0cm,bottom=3.0cm,includehead]{geometry}
-%%
-%% new definitions of page size - variant 2
-%% Bindekorrektur=10mm, textwidth=155mm, textheight=242mm
-%%\areaset[10mm]{160mm}{247mm} 
 
-%% header and foot
+%% header and footer
 \RequirePackage[
 headsepline,
 automark
@@ -87,14 +50,13 @@ automark
 \ohead{\thepage}
 %\cfoot{\thepage}
 
-\RequirePackage{setspace}
-
 \RequirePackage[absolute]{textpos} %% for positioning the tu-logo
 
 \RequirePackage[list=true]{subcaption}
 
 \RequirePackage{mathtools} %% extension of amsmath (also loads amstext)
 \RequirePackage{amssymb}   %% for complex formulas
+
 %Correct UTF8 mapping for ams fonts
 \ifdefined\pdffontattr% \ifdefined is part of the e-TeX extension, which is part of any modern LaTeX compiler.
   \immediate\pdfobj stream file {umsa.cmap}
@@ -104,71 +66,40 @@ automark
 \fi
 \RequirePackage{xfrac}  %% diagonals fractions - e.g. numbers
 \RequirePackage{siunitx} %% SI Units
-
 \RequirePackage{booktabs} %% for better looking tables 
-
 \RequirePackage{lipsum} %% for lorem ipsum
-
-\RequirePackage{ragged2e,tabularx}
-\RequirePackage{longtable}
-\RequirePackage[para,flushleft]{threeparttable}
-\RequirePackage{multirow}
-
-\RequirePackage{url} %% links inside the document as well as to websites
-
-\RequirePackage{pdfpages} %% to include pdf pages
-
-\RequirePackage{textcomp} %% additional symbols
-\RequirePackage{marvosym} %% additional symbols
-\RequirePackage{pifont}   %% additional symbols
 \RequirePackage{eurosym} %% for correct Euro-Symbol with \officialeuro{}
-
 \RequirePackage[babel,austrian=quotes,english=american]{csquotes}   %% context sensitives quotations
-
-\RequirePackage{xspace}  %% for intelligent spacing after commands \xspace
-
-\RequirePackage{enumitem}  %% to customize itemize, enumerate, description
-
 \RequirePackage{listings} %% syntax highlighting - for program code
-
-% Eigene Sprachabhängige Begriffe
-% \renewcaptionname{ngerman}{\tablename}{Tab.}
-% \renewcaptionname{ngerman}{\figurename}{Abb.}
-% \renewcaptionname{ngerman}{\bibname}{Literaturverzeichnis}
-% \renewcaptionname{ngerman}{\abstractname}{Kurzfassung}
+\RequirePackage{titlesec} %% For better titles/to remove 'Chapter N' 
 
 \renewcaptionname{english}{\tablename}{Tab.}
 \renewcaptionname{english}{\figurename}{Fig.}
 \renewcaptionname{english}{\bibname}{bibliography}
 \renewcaptionname{english}{\abstractname}{Abstract}
 
-%% Typografische Einstellungen zu Gleitobjekten
-\renewcommand{\floatpagefraction}{0.6}
-\renewcommand{\textfraction}{0.15}
-\renewcommand{\topfraction}{0.8}
-\renewcommand{\bottomfraction}{0.5}
-\setcounter{topnumber}{3}
-\setcounter{totalnumber}{5}
+%% Einstellungen für Zeilenumbrüche von Weblinks im url-Paket
+\setcounter{biburllcpenalty}{9000}% Kleinbuchstaben
+\setcounter{biburlucpenalty}{9000}% Großbuchstaben
+%% Quelle: https://texwelt.de/fragen/7008/zeilenumbruche-in-bibliografielinks
+
+%% ===== additional settings =============
+\setcounter{secnumdepth}{3}
+\sisetup{output-decimal-marker = {,},
+range-phrase = --,
+group-separator = {~},
+per-mode = symbol, 
+list-final-separator={ und }}
 
 
-%% Customize Listing
-\lstset{
-	basicstyle = \footnotesize\ttfamily,
-	keywordstyle=\color{blue}\bfseries,
-	tabsize=3,
-	breaklines=true,
-	showstringspaces = false,
-	upquote = true,
-	xleftmargin=4mm,
-	xrightmargin=.25in,
-	aboveskip=15pt,
-	belowskip=12pt,
-	belowcaptionskip=12pt,
-	numbers=left,
-	numberstyle=\tiny,
-	frame=tb,
-	moredelim=**[is][\color{blue}]{@}{@}
-} 
+%% examples for useful shortcuts in German
+\newcommand{\zB}{\mbox{z.\,B.}\xspace}
+\newcommand{\Name}[1]{\textsc{#1}}
+
+\newcommand{\vKTxv}{\mathbf{v}_1^T\tilde{\mathbf{K}}_{T},_{\xi}\mathbf{v}_1}
+\newcommand{\vKTxxv}{\mathbf{v}_1^T\tilde{\mathbf{K}}_{T},_{\xi\xi}\mathbf{v}_1}
+
+
 \lstset{literate=%
    {Ö}{{\"O}}1
    {Ä}{{\"A}}1
@@ -178,14 +109,13 @@ automark
    {ä}{{\"a}}1
    {ö}{{\"o}}1
 }
-\renewcommand{\lstlistingname}{Program Code}
+
 
 %%
 %% Customize Titlepage for Department of Civil Engineering
 %%
 \RequirePackage{ifthen}
 
-\RequirePackage{titlesec} %% For better titles/to remove 'Chapter N' 
 %% Define Chapter Header:
 \titleformat{\chapter}[display]
   {\normalfont\bfseries}{}{0pt}{\Large}
@@ -214,29 +144,8 @@ ausgeführt zum Zwecke der Erlangung des akademischen Grads
 eingereicht an der FH Campus Wien, Bioinformatik
 }}
 
-% \newcommand{\titleDISSen}[1]{{\large Master Thesis} \\[3ex]
-% {\LARGE \textbf{#1
-% }
-% \\[3.0ex]}
-% {\large
-% submitted in satisfaction of the requirements for the degree
-% \\[1ex]
-% \ifthenelse{\equal{\gender}{M}}{Doctor of Science in Civil Engineering}{Doctor of Science in Civil Engineering}
-% \\[1ex]
-% of the TU Wien, Faculty of Civil and Environmental Engineering
-% }}
 
-% \newcommand{\titleDISSde}[1]{{\large Dissertation} 
-% \\[3ex]
-% {\LARGE \textbf{#1}
-% \\[3.0ex]}
-% {\large
-% ausgeführt zum Zwecke der Erlangung des akademischen Grads
-% \\[1ex]
-% \ifthenelse{\equal{\gender}{M}}{Doktor der technischen Wissenschaften}{Doktorin der technischen Wissenschaften}
-% \\[1ex]
-% eingereicht an der TU Wien, Fakultät für Bau- und Umweltingenieurwesen
-% }}
+
 
 \renewcommand{\maketitle}{%
 \begin{titlepage}
