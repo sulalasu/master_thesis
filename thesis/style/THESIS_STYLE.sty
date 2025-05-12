@@ -107,6 +107,8 @@ automark
 
 \RequirePackage{booktabs} %% for better looking tables 
 
+\RequirePackage{lipsum} %% for lorem ipsum
+
 \RequirePackage{ragged2e,tabularx}
 \RequirePackage{longtable}
 \RequirePackage[para,flushleft]{threeparttable}
@@ -137,7 +139,7 @@ automark
 
 \renewcaptionname{english}{\tablename}{Tab.}
 \renewcaptionname{english}{\figurename}{Fig.}
-\renewcaptionname{english}{\bibname}{Bibliography}
+\renewcaptionname{english}{\bibname}{bibliography}
 \renewcaptionname{english}{\abstractname}{Abstract}
 
 %% Typografische Einstellungen zu Gleitobjekten
@@ -182,6 +184,11 @@ automark
 %% Customize Titlepage for Department of Civil Engineering
 %%
 \RequirePackage{ifthen}
+
+\RequirePackage{titlesec} %% For better titles/to remove 'Chapter N' 
+%% Define Chapter Header:
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries}{}{0pt}{\Large}
 
 \newcommand{\titleDAen}[1]{{\large Master Thesis} \\[3ex]
 {\LARGE \textbf{#1
