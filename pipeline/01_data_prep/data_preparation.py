@@ -39,6 +39,6 @@ for col, kwargs in date_format_map.items():
 
 #print(df.head())
 print(df.columns)
-print(df["EC_BG_RH"])
+print(df[["ToD", "ToD_N", "ToD_O"]])
 
  

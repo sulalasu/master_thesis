@@ -22,13 +22,13 @@ PAT_BG_RH -- Patient blood group Rhesus factor
 
 # EC data (6 columns --> ?? columns)
 EC_BG -- EC Blood group (A,AB, B)
-EC_RH -- EC Rhesus factor (Rh positiv, Rh negativ, ???)
-EC_TYPE -- EC Type (EKF = Whole bag, EKFX = Split bag)
+EC_RH -- EC Rhesus factor (Rh positiv, Rh negativ, Rh d weak?)
+EC_TYPE -- EC Type (EKF = Whole bag?, EKFX = Split bag?, plasma, usw), wenig relevant, aber drin lassen, da es zu problemen führen kann
 EC_BG_RH -- EC Blood group rhesus factor, other format (0 +CcD.ee -, B +CcD.ee -, A -ccddee-, und ähnlich)
 EC_ID_O_hash
 EC_ID_I_hash
 
 # Other data (3 columns --> ?? columns)
-ToD  -- Transfusion  or discarded
-ToD_N -- Transfused or Discarded
-ToD_O -- Transfused or Discarded (Nummer 2?)
+ToD  -- Transfusion  or discarded (Transfundiert, Entsorgt)
+ToD_N -- Transfused or Discarded (AUS = aus/abgegeben (an die Station?), VER = Verabreicht?)
+ToD_O -- Transfused or Discarded (ABG = Abgelaufen? (= vernichtet))
