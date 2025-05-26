@@ -18,9 +18,9 @@ date_format_map = {
     "T_ISO_T" : {"yearfirst" : True}, 
     "T_DE" : {"dayfirst" : True}, 
     "T_US_T" : {"format" : "%m/%d/%y %H:%M"}, #%H for 24h clock, %I for 12h clock
-    "T_DE_S" : {"dayfirst" : True}, 
+    "T_DE_S" : {"format" : "%d.%m.%y"}, #y for short year
     "T_US" : {"format" : "%m-%d-%y"}, 
-    "T_DE_T" : {"dayfirst" : True},
+    "T_DE_T" : {"format" : "%d.%m.%y %H:%M"},
     "T_ISO" : {"yearfirst" : True}
 }
 
@@ -28,17 +28,32 @@ for col, kwargs in date_format_map.items():
     df[col] = pd.to_datetime(df[col], **kwargs).dt.date
 
 
-# TODO Merge all date columns
-# TODO Rename to "DoT" or "Ttansfusion_date"
-# Merge all date columns
-#print(df["ToD_O"])
 
 # TODO Reformat all Rh-Columns
 # TODO Merge/Split Rh/AB0 Columns
 # Reformat Rh-Columns and split/merge into 2 columns: Rh, AB0
 
+def merge_columns(df, columns_to_merge, colname):
+    # Merge multiple non-overlapping columns into one with colname as the new name
+    #TODO: make sure, there are no rows with overlapping values (like 2 dates)
+    df[colname] = df[columns_to_merge].bfill(axis=1).iloc[:, 0]
+    df = df.drop(columns_to_merge, axis=1, inplace = True)
+
+
+# TODO Merge all date columns
+# TODO Rename to "DoT" or "Transfusion_date"
+# Merge all date columns
+#print(df["ToD_O"])
+date_cols = [col for col in df.columns if col.startswith("T_")]
+# or use map:
+# date_cols = date_format_map.keys()
+merge_columns(df, date_cols, "date")
+
+
+
 #print(df.head())
 print(df.columns)
-print(df[["ToD", "ToD_N", "ToD_O"]])
+print(df)
+#print(df[["ToD", "ToD_N", "ToD_O"]])
 
  
