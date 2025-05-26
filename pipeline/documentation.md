@@ -32,3 +32,9 @@ EC_ID_I_hash
 ToD  -- Transfusion  or discarded (Transfundiert, Entsorgt)
 ToD_N -- Transfused or Discarded (AUS = aus/abgegeben (an die Station?), VER = Verabreicht?)
 ToD_O -- Transfused or Discarded (ABG = Abgelaufen? (= vernichtet))
+
+
+26.05.2025
+- Added todo-tree package to vscode (strg + , for seeing settings, strg + shift + p to open 'settings.json'.) To add new Tag, type 'todo tree add tag' into > prompt.
+
+- Merged columns from dates
