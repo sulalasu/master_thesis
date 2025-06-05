@@ -57,10 +57,8 @@ transfusion_status_map = {
 }
 
 for col, val in transfusion_status_map.items():
-    print(col)
-    print(val)
-    print("____")
     df[col].replace(val, inplace=True) # NOTE'replace' doesnt change non-matching vals, 'map' changes them to NaN
+
 merge_columns(df, transfusion_status_map.keys(), "use")
 # DONE Rename to "DoT" or "Transfusion_date"
 
@@ -69,9 +67,9 @@ merge_columns(df, transfusion_status_map.keys(), "use")
 # TODO Merge/Split Rh/AB0 Columns
 # TODO Reformat all Rh-Columns
 
-print(df)
 
-
+# Save df to new file:
+df.to_csv(path_or_buf="./pipeline/01_data_prep/output.csv", sep=",")
 
 
  

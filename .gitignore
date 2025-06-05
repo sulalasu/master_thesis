@@ -1,4 +1,7 @@
 ./data
+data*
+output*
+todo.txt
 
 *.aux
 *.bcf

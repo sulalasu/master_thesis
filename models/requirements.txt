@@ -5,3 +5,4 @@ pandas
 numpy
 seaborn
 tensorflow
+plotnine.data
