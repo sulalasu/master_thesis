@@ -2,4 +2,4 @@ data/
 data.*
 todo.txt
 references/
-
+__pycache__
