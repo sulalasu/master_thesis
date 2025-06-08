@@ -1,5 +1,5 @@
 ./data
-data*
+data.*
 output*
 todo.txt
 
