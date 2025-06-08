@@ -3,15 +3,3 @@ data.*
 todo.txt
 references/
 
-#*.aux
-#*.bcf
-#*.out
-#*.xmpdata
-#*.synctex.gz
-#*.log
-#*.run.xml
-#*.pdf
-#*.toc
-#*.text.bbl
-#*.tex.blg
-#*.tex.bbl
