@@ -1,0 +1,9 @@
+keras
+scikit-learn
+jupyter
+pandas
+numpy
+seaborn
+tensorflow
+# plotnine.data
+statsmodels
