@@ -1,7 +1,16 @@
-import pandas as pd
-import numpy as np
-from numpy import nan
-from datetime import datetime
+# using * is discouraged because of 
+# possible naming conflicts/namespace pollution
+# from cleaning import *
+# from input import *
+# from processing import *
+# from viz import *
+# from utils import *
 
 
-import time #TODO: delete, for speed measure only
+# Functions have to be accessed like this:
+# src.cleaning.my_func()
+from . import cleaning
+from . import input
+from . import processing
+from . import viz
+from . import utils
