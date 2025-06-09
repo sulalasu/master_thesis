@@ -9,8 +9,9 @@
 
 # Functions have to be accessed like this:
 # src.cleaning.my_func()
-from . import cleaning
-from . import input
-from . import processing
+from . import load
+from . import clean
+from . import process
 from . import viz
 from . import utils
+from . import config
