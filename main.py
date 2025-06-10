@@ -38,19 +38,19 @@ df.to_csv(path_or_buf="./data/02_intermediate/intermediate_output.csv", sep=",")
 
 
 
-#%%--------------------------------------------------------------------------------
-# DATA VIZ (EXPLORATION)
-#----------------------------------------------------------------------------------
-
-
-
-
-
 
 #%%--------------------------------------------------------------------------------
 # PROCESSING
 #----------------------------------------------------------------------------------
-# remove duplicates/NAs, maybe imputation if necessary, splitting in test/training etc.
+# remove duplicates/NAs, maybe imputation if necessary
+# make STATIONARY!
+# splitting in test/training etc. here or as extra step/model step?
+
+
+
+#%%--------------------------------------------------------------------------------
+# DATA VIZ (EXPLORATION)
+#----------------------------------------------------------------------------------
 
 
 
@@ -61,6 +61,16 @@ df.to_csv(path_or_buf="./data/02_intermediate/intermediate_output.csv", sep=",")
 
 #TODO: look into OOP + config.yml
 #sarima = Model1(config[0])
+#sarima.split([80, 20])
+#sarima.run(parma1, param2, parma3...)
+#sarima.predict(x_days)
+#sarima.test()
+#sarima.evaluate()
+#sarima.
+
+#all of the above could be grouped into sarima.run() (if certain stuff is set up before, like vals for params and split!)
+
+
 
 # if functional:
 # sarima = statsmodels.sarima(xx, xx, xx) # oder so
