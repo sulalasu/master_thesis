@@ -1,35 +1,71 @@
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.seasonal import MSTL #multiple seasonal decompose
+from pandas.plotting import autocorrelation_plot
+
+
+def line_plot(df):
+    pass
+
+
 
 
 #----------------------------------------------------------------------------------------------
-# GROUP BY DAY, WEEK, MONTH:
+# DECOMPOSITION
 #----------------------------------------------------------------------------------------------
-# gehört eigentlich eher zu utils
-
-def get_daily_sum(df):
-    #calculate daily values sums
-    df_daily = df.groupby("date", as_index=False)["count"].sum()
-    daily_average = df_daily["count"].mean()
-    return df_daily
+#TODO: how to do it? do i want ot have a function, that iterates+decomposes every value?
+# Or only the main value (total count), or main values (total count, ec_bg/rh_count, pat_bg/rh_count, etc?)
 
 
-def get_daily_mean(df):
-    #calculate daily values sums
-    df_daily = df.groupby("date", as_index=False)["count"].sum()
-    daily_average = df_daily["count"].mean()
-    return daily_average
+def decompose_all(df, model, period=7):
+    #maybe function to decompose multiple/all columns? or just one fct, 
+    # where it iterates over models (and i can pass df.columns minus date)?
 
-#Weekly:
-def get_weekly_mean(df):
-    df_weekly = df_daily.groupby(pd.Grouper(key='date', freq='W'))['count'].mean().reset_index()
-    df_weekly['week_start'] = df_weekly['date'] - pd.offsets.Week(1) + pd.offsets.Day(1)
-    df_weekly = df_weekly.rename({'date': 'week_end'}, axis=1)
-    return df_weekly
+    result = seasonal_decompose(df, model='additive', period=period)
+    print(result.trend)
+    print(result.seasonal)
+    print(result.resid)
+    print(result.observed)
+
+    # Visualize:
+    #TODO: tune plot
+    result.plot()
+    plt.show()
+
+    return None
+
+def decompose_one(df, model, column, period=7):
+    #maybe function to target only one column to decompose?
+    result = seasonal_decompose(df[column], model='additive', period=period)
+    print(result.trend)
+    print(result.seasonal)
+    print(result.resid)
+    print(result.observed)
+
+    # Visualize:
+    #TODO: tune plot
+    result.plot()
+    plt.show()
 
 
-#Monthly:
-def get_monthly_mean(df):
-    df_monthly = df_daily.groupby(pd.Grouper(key='date', freq='M'))['count'].mean().reset_index()
-    df_monthly['month_start'] = df_monthly['date'] - pd.offsets.Week(1) + pd.offsets.Day(1)
-    df_monthly = df_monthly.rename({'date': 'month_end'}, axis=1)
-    return df_monthly
+def multiple_decompose(df, col: str, periods: list):
+    # col = col to decompose, i.e. y, for example "count"
+    mstl = MSTL(df[col], periods=periods)
+    res = mstl.fit()
+
+    res.plot()
+    plt.show()
+
+    return mstl
+
+#----------------------------------------------------------------------------------------------
+# AUTOCORRELATION
+#----------------------------------------------------------------------------------------------
+
+def autocorr(column: pd.Series):
+    autocorrelation_plot(column)
+
+    plt.show()

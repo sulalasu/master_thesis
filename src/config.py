@@ -30,3 +30,28 @@ transfusion_status_map = {
         "ABG" : "expired"
     }
 }
+
+
+#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+# TEST DATA
+#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
+seoul_name_map = {
+    "0": "date",
+    "1": "hour",
+    "2": "temperature", #C
+    "3": "humidity", #%
+    "4": "wind_speed", #m/s
+    "5": "visibility", #10m
+    "6": "dew_point_temp", #C
+    "7": "solar_radiation", #Mj/m2
+    "8": "rainfall", #mm,
+    "9": "snowfall", #cm
+    "10": "seasons", 
+    "11": "holiday",
+    "12": "functioning_day", #[dt: Arbeitstag]
+    "13": "count" 
+}
+
+# %%
