@@ -7,7 +7,49 @@ from statsmodels.tsa.seasonal import MSTL #multiple seasonal decompose
 from pandas.plotting import autocorrelation_plot
 
 
-def line_plot(df):
+def line_plot(data):
+    # TODO
+    pass
+
+
+def seasonal_plot(data, periods: list[str]):
+    """
+    periods = periods to make seasonal plots for (e.g. week, months)
+    can be "W", "M", "Y" 
+    """
+    fig, ax = plt.subplots(ncols=1, nrows=len(periods))
+
+    data['day_of_week'] = data['date'].dt.dayofweek
+    data['week'] = data['date'].dt.isocalendar().week
+    data['week_str'] = data['week'].astype(str)
+    data['month'] = data['date'].dt.isocalendar().month
+
+    for period in periods:
+        pass
+
+
+
+    
+    #TODO
+    fig, ax = plt.subplots()
+    ax.plot(label = ["year"])
+    pass
+
+
+def heatmap(data):
+    #TODO
+    # plt.figure(figsize=(7, 5))
+    # sns.lineplot(x=data.index.month, y=data['count'], ci=None)
+    # plt.xlabel('Month')
+    # plt.ylabel('Number of XXX') ä#TODO
+    # plt.title('Seasonal Plot')
+    # plt.xticks(
+    #     range(1, 13), 
+    #     labels=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    # )
+    # plt.grid(True)
+    # plt.show()
+    # return plt
     pass
 
 
