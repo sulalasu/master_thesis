@@ -1,4 +1,5 @@
 #TODO: is it necessary to load the modules here?
+from src import data_model
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import statsmodels
@@ -9,21 +10,30 @@ class Model:
 
 
 
-    def __init__(self, data): #TODO: maybe add configuration?
+    def __init__(self, data: data_model.Data): #TODO: maybe add configuration?
+        # TODO: change parameter of model to be of 'Data' type 
         self.data = data
 
         #Train/Test sets:
+        self.split_index = None #Index at split point
         self.train_data = None
         self.test_data = None
 
+        #Model(s)
+        self.model = None
+        self.model_fit = None
+        self.prediction = None
+        self.model_runs = list() #List of past runs
+        #TODO: save model runs as well as their state (parameters etc.)
+        # so they can be accessed later. save to file.
+
+        #Dont think is needed:
+        #self.params = None #rename; prob better in base class.
+        
+
+
         #Decompositions: (s.u., gehört eig. nciht hierher)
         # self.decomp = None
-
-        #Model fit
-        self.model_fit = None
-
-        #Results:
-        self.prediction = None
 
     def split_by_percentage(self, percent=0.33):
         """percent = percent to assign as test data. should be <0.5"""
@@ -31,11 +41,11 @@ class Model:
         if percent >= 1 or percent <= 0:
             raise Exception(f"Training/test data ratio: test size: {percent}) must be float smaller than 1 (should be >0.5)")
     
-        split_index = int(len(self.data)*percent)
-        self.train_data = self.data.iloc[: split_index]
-        self.test_data = self.data.iloc[split_index:]
+        self.split_index = int(len(self.data)*percent)
+        self.train_data = self.data.iloc[: self.split_index]
+        self.test_data = self.data.iloc[self.split_index:]
 
-
+    
 
 
 
@@ -83,9 +93,10 @@ class Model:
         #run model against test data set wtih expanding window
         pass
 
-    def validate_rolling_window(self, data, w):
+    def validate_rolling_window(self, data, w, sliding=False):
         """
-        w = window size in days
+        w : window size in days
+        sliding : If True window slides by one day, if false window slides by window size. 
         """
         if self.test_data == None or self.train_data == None:
             raise ValueError("test_data and train_data cant be None. Use split_by_percentage method,"
@@ -96,6 +107,10 @@ class Model:
         # ich noch return zu split_by_percentage machen
         train = self.train_data
         test = self.test_data
+
+        #TODO: this has to be done using for t in range(), to
+        # account for step size of window (if sliding=True, i want
+        # to jump 3 days, if w=3)
         for t in test[:len(test) - w + 1]:
             print(test, len(test) - w + 1)
 
@@ -109,6 +124,17 @@ class Model:
         #run evaluations, to get values like MAE, MAPE etc.
         pass
 
+    def run_MAE():
+        pass
+    
+    def run_MAPE():
+        pass
+
+    def run_MSRE():
+        pass
+
+
+    
 
     #UNCLEAR: add extra plotting here or just use the functions? 
 
@@ -128,26 +154,21 @@ class ModelSarima(Model):
 
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
         super().__init__(data)
-        self.model = None
-        self.model_fit = None
-        self.params = None #rename; prob better in base class.
 
-    def fit(self, col: str, p, d, q):
+    def make_model(self, col: str, p, d, q):
         #print(self.df.head())
         # col=string for univariate forecasting column/target
         #create model with trainign data + (hyper)parameters
         #params are model parameters
-        print("Series: \n\n\nSeries:")
-        print(col)
-        print(p, d, q)
-        series = self.df[["date", col]]
-        print(series)
+        series = self.data[["date", col]]
         self.model = ARIMA(series, order=(p,d,q))
+
+
+    def fit(self):
         self.model_fit = self.model.fit()
 
-        # return self.model_fit
-    
-    def fit_summary(self):
+
+    def print_fit_summary(self):
         print(self.model_fit.summary())
 
     def predict(self, days):
@@ -162,6 +183,7 @@ class ModelLSTM(Model):
 
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
         super().__init__(data)
+        #LSTM-specific variable inits
         self.model = None
         self.params = None #rename; prob better in base class.
 
@@ -178,6 +200,7 @@ class ModelProphet(Model):
 
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
         super().__init__(data)
+        #prophet-specific variable inits
         self.model = None
         self.params = None #rename; prob better in base class.
 

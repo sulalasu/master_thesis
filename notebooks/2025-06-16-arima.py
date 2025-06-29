@@ -69,6 +69,43 @@ df_daily = df_daily["value"].resample("D").sum()
 df_daily = df_daily.to_frame()
 
 
+#%% Make DATA class for dataframe
+# so i can add methods for plotting etc.
+
+class Data():
+    # Class for the processed data, which contains methods for plotting
+    # and transforming, which will be passed into class 'Model'
+    # TODO: change parameter of model to be of 'Data' type 
+
+    def __init__(self, data: pd.DataFrame):
+        self.data = data
+
+    #Methods:
+    def plot_line(self):
+        #simple line plot
+        pass
+
+    def plot_seasonal(self):
+        #seasonal plot
+        pass
+
+    def plot_seasonal_subseries(self):
+        #plot seasonal subseries
+        pass
+ 
+    def plot_acf(self):
+        pass
+
+    def plot_pacf(self):
+        pass
+
+    def plot_overview(self):
+        # aggregate method to plot multiple functions
+        pass
+
+
+
+
 
 #%%
 #fit with sliding window
@@ -79,51 +116,99 @@ class ModelSarimaExpand(ModelSarima):
     # print(model_fit.summary())
     # output = model_fit.forecast()
 
-    def set_params(self, p, d, q):
-        self.p = p
-        self.d = d
-        self.q = q
+    #really not needed!:
+    # def set_params(self, p, d, q):
+    #     self.p = p
+    #     self.d = d
+    #     self.q = q
 
-    def make_model(self, p, d, q):
-        return ARIMA(self.train_data, order=(p,d,q))
+    # Also not needed, since is done on rolling basis:
+    # def make_model(self, p, d, q):
+    #     self.model = ARIMA(self.train_data, order=(p,d,q))
     
+    # def fit(self):
+    #     self.model_fit = self.model.fit()
 
 
-    def run(self, perc, p, d, q, window):
+    def run(self, split_perc, p, d, q, window_size, horizon):
         """
         perc = percentage test set size. should be <0.5
         p, d, q = params for ARIMA
-        window = size (in days) of cross validation rolling/expanding window.
+        window : how many observations to keep from past (in days; for rolling window). 
+        horizon : how far to look ahead
         """
-        if window < 1 or type(window) != int:
-            raise IndexError("window must be int, 1 or bigger")
+        if window_size < 1 or type(window_size) != int:
+            raise IndexError("'window_size must be int, 1 or bigger")
         
         #generate train/test set
-        self.split_by_percentage(perc)
+        self.split_by_percentage(split_perc)
         train = self.train_data
         history = train
         test = self.test_data
 
-        print(train)
-        print(test)
 
         output_list = []
         predictions = []
-        #iterate through test set, make model, fi model, forecast, save results
-        for i in range(len(test) - window + 1):
-            print(i)
-            model = ARIMA(history, order=(p,d,q))
-            
-            model_fit = model.fit()
-            print(model_fit.summary())
-            
-            output = model_fit.forecast(steps = window)
-            output_list.append(output)
 
-            print(f"output:\n{output}\n\noutput[0]: {output[0]}\n\n")
+        self.forecast_expanding = []
 
-            #predictions = predictions.append()
-        print(f"'output' has {len(output_list)} entries with a window size of {window}.\nPredictions are {[x[0] for x in output_list]}")
+        self.forecast_series = pd.Series()
+        # Expanding window (iterate through indices, 
+        # keep distance to forecast horizon at the end
+        for i in range(self.split_index, len(self.data)-horizon):
+            train = train.reset_index()
+            print(train.head())
+            train = self.data[:i]
+            test = self.data[i:]
+
+            #model fit
+            model_expanding_fit = ARIMA(train, order=(p,d,q)).fit()
+
+            #model predict
+            expanding_prediction = model_expanding_fit.forecast(steps=horizon)
+            print("\nexpanding pred:\n")
+            print(expanding_prediction)
+            print(expanding_prediction.reset_index())
+            print(expanding_prediction[0])
+            print(type(expanding_prediction))
+            print()
+            self.forecast_series = pd.concat([self.forecast_series, expanding_prediction])
+            #summary/result:
+            print(f"output:\n{expanding_prediction}\n\noutput[0]: {expanding_prediction[0]}\n\n")
+            print(self.forecast_series)
+
+        #model plot:
+        
+        print(f"forecast series: {self.forecast_series}")
+        #TODO: add as kwargs:
+        width = 20
+        height = 10
+        dpi = 300
+
+        fig, ax = plt.subplots(figsize=(width, height), dpi = dpi)
+        ax.plot(self.data)
+        ax.plot(self.forecast_series, color="orange")
+        plt.show()
+
+
+        #iterate through test set indices, make model with train data, fit model, 
+        # forecast (window size), save results
+        # for i in range(len(test) - window_size + 1):
+        #     print(self.data[:])
+        #     model_expanding = ARIMA(self.data[:self.split_index+i], order=(p,d,q)).fit()
+        #     pred_expanding = model_expanding.forecast(steps=horizon)
+        #     forecast_expanding.append(pred_expanding)
+
+        #     model_fit = ARIMA(history, order=(p,d,q)).fit()
+        #     print(model_fit.summary())
+
+        #     output = model_fit.forecast(steps = rolling_window)
+        #     output_list.append(output)
+
+        #     print(f"output:\n{output}\n\noutput[0]: {output[0]}\n\n")
+
+        #     #predictions = predictions.append()
+        # print(f"'output' has {len(output_list)} entries with a window size of {window}.\nPredictions are {[x[0] for x in output_list]}")
 
 #%%
 
@@ -132,13 +217,14 @@ m = ModelSarimaExpand(df_daily)
 
 
 #split
-m.split_by_percentage(0.66)
-print(m.train_data)
-print(m.test_data)
+#m.split_by_percentage(0.99)
+#print(m.train_data)
+#print(m.test_data)
 
 
-#%%
-m.run(0.01, 1, 1, 1, 1)
+m.run(0.90, 1, 1, 1, 1, 1)
+
+
 
 
 # %%

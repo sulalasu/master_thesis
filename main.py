@@ -9,12 +9,13 @@ import seaborn as sns
 
 
 
-from src import load
 from src import clean
+from src import config
+from src import data_model
+from src import load
+from src import model
 from src import process
 from src import viz
-from src import config
-from src import model
 
 
 print(load.__file__)
@@ -73,6 +74,14 @@ load.show_info(df=df)
 # besides viz would be add to model anyway? BUT exploratory viz is done on raw data, so no specific model...
 # TODO: make prettier: add title, colorchart (so i can later exchange colors), etc.
 
+
+#%%
+# Load data as Class Data:
+df = data_model.Data(data=df)
+#%%
+df.print_head()
+df.plot_seasonal(plot_type='weekly', col_name='count')
+#%%
 
 daily_average = df["count"].mean()
 

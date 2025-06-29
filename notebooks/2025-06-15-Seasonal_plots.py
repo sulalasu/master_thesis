@@ -50,7 +50,7 @@ df['date'] = pd.to_datetime(df['date']).dt.date.astype('datetime64[ns]') #altern
 #Resample daily:
 df_daily = df.set_index("date")
 df_daily = df_daily["value"].resample("D").sum()
-df_daily = df_daily.to_frame()
+df_daily = df_daily.to_frame() #to convert series to df
 
 #Basic plot
 sns.lineplot(x='date', y='value', data=df_daily)
@@ -69,19 +69,31 @@ series = df['value']
 col = 'value_5'
 df = raw_df[["date", col]]
 df = df.rename(columns={col : "value"})
+df["date"] = pd.to_datetime(df["date"])
 df = df.set_index('date')
 
 series = df['value']
-#hourly = series.resample('h').sum()
-hourly = series.reset_index()
-sns.lineplot(x='date', y='value', data=df)
+
+
+
 #%%
-hourly['day'] = hourly['date'].dt.days
+##### HOURLY #########
+# Hourly is season of one day, split by hours
+
+#make and plot 'hourly'
+hourly = series.reset_index()
+sns.lineplot(x='date', y='value', data=hourly)
+
+hourly['hour'] = hourly['date'].dt.hour
+hourly['day'] = hourly['date'].dt.day
 #hourly['week'] = hourly['date'].dt.isocalendar().week #need to make it string later
 hourly['day_str'] = hourly['day'].astype(str) #need string for 'hue'
 print(hourly.head())
 
-sns.lineplot(x='day_of_week', y='value', data=hourly, hue='week_str')
+
+#%%
+hourly_2012_12_01 = hourly[hourly['date'].between(pd.to_datetime('2013-02-01'), pd.to_datetime('2013-02-28'))]
+sns.lineplot(x='hour', y='value', data=hourly_2012_12_01, hue='day_str')
 period_title = 'hourly'
 plt.title(f'{period_title} seasonality plot')
 plt.xlabel('Hour')
@@ -96,13 +108,14 @@ plt.show()
 
 #%% period: days in week
 #daily = series.resample('D').sum()
-daily = daily.reset_index()
+daily = series.reset_index()
 daily['day_of_week'] = daily['date'].dt.day_of_week
 daily['week'] = daily['date'].dt.isocalendar().week #need to make it string later
 daily['week_str'] = daily['week'].astype(str) #need string for 'hue'
 print(daily.head())
 
-sns.lineplot(x='day_of_week', y='value', data=daily, hue='week_str')
+daily_2012_02 = daily[(daily["date"].dt.year == 2012) & (daily["date"].dt.month.isin([1, 2, 3]))]
+sns.lineplot(x='day_of_week', y='value', data=daily, hue='week_str', errorbar=('ci', False))
 period_title = 'Daily'
 plt.title(f'{period_title} seasonality plot')
 plt.xlabel('Day of the week')
@@ -149,11 +162,15 @@ plt.show()
 
 
 
-
+# Old stuff (i think):
 
 #%%
+seoul = fetch_openml("seoul_bike_sharing_demand", as_frame=True)
+seoul = pd.DataFrame(seoul.frame)
+df = seoul
 df.rename(mapper=config.seoul_name_map, axis=1, inplace=True)
 print("seoul head\n\n")
+df = df.reset_index()
 df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d")
 df["hour"] = pd.to_datetime(df["hour"], format="%H").dt.time
 
@@ -377,3 +394,5 @@ plt.show()
 # Yearly
 
 
+
+# %%
