@@ -80,7 +80,17 @@ load.show_info(df=df)
 df = data_model.Data(data=df)
 #%%
 df.print_head()
-df.plot_seasonal(plot_type='weekly', col_name='count')
+df.plot_seasonal(plot_type='daily', col_name='count')
+
+
+
+#%%
+#Boxplots
+df.plot_boxplots(col_name='count')
+df.plot_seasonal_subseries(col_name='count') #NOTE: i think it works, but not enough dummy data.
+#TODO: check if seasonal subseries plot works with multi-year data
+
+
 #%%
 
 daily_average = df["count"].mean()

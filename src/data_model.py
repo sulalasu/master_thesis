@@ -12,6 +12,16 @@ class Data():
     def __init__(self, data: pd.DataFrame):
         #index is datetime 
         self.data = data
+        self.add_year_month_day()
+
+    def add_year_month_day(self) -> None:
+        """Add 'year', 'month', 'day' as separate columns"""
+        self.data['year'] = self.data.index.year 
+        self.data['month'] = self.data.index.month 
+        self.data['day'] = self.data.index.day
+        self.data = self.data.reset_index()
+        self.data['day_of_year'] = self.data['date'].dt.dayofyear #.timetuple().tm_yday
+        self.data = self.data.set_index('date')
 
     #Methods:
     def print_head(self): 
@@ -25,13 +35,26 @@ class Data():
         ax.plot(self.data[0])
         plt.show()
 
-    def plot_seasonal(self, plot_type: list[str], col_name):
+    def plot_boxplots(self, col_name: str):
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(15, 6))
+
+        sns.boxplot(x=self.data['year'], y=self.data[col_name], ax=ax[0])
+        ax[0].set_title('Year-wise Box Plot', fontsize = 20, loc='center', fontdict=dict(weight='bold'))
+        ax[0].set_xlabel('Year', fontsize = 16, fontdict=dict(weight='bold'))
+        ax[0].set_ylabel(col_name, fontsize = 16, fontdict=dict(weight='bold'))
+
+        sns.boxplot(x=self.data['month'], y=self.data[col_name], ax=ax[1])
+        ax[1].set_title('Month-wise Box Plot', fontsize = 20, loc='center', fontdict=dict(weight='bold'))
+        ax[1].set_xlabel('Month', fontsize = 16, fontdict=dict(weight='bold'))
+        ax[1].set_ylabel(col_name, fontsize = 16, fontdict=dict(weight='bold'))
+
+    def plot_seasonal(self, plot_type: list[str], col_name: str):
         #seasonal plot (days of week, week of year, years)
         # 'column': str name of column to plot. Column values must be float or integer
 
-        accepted_types = ["daily", "weekly", "yearly"]
+        accepted_types = ["daily", "weekly"]
         if plot_type not in accepted_types:
-            raise ValueError("'plot_type' must be 'daily', 'weekly' or 'yearly")
+            raise ValueError("'plot_type' must be 'daily' or 'weekly'")
         
         #drop all except 'date' and column
         series = self.data[col_name].to_frame()
@@ -74,10 +97,8 @@ class Data():
             df[x] = df['date'].dt.isocalendar().week
             df[ref_frame] = df['date'].dt.year
             df[ref_frame_str] = df[ref_frame].astype('str')
-
-
-        elif plot_type == 'yearly':
-            pass
+        
+        # NOTE: could add daily in year, daily in month
 
 
         #Plotting:
@@ -86,10 +107,7 @@ class Data():
         ax.set_xlabel(xlabel)
         ax.set_ylabel('value')
         ax.set_xticks(ticks=range(len(xticks_labels)), labels=xticks_labels)
-        #if more than 12 xticks, hide every second label
-        # if len(ax.get_xticklabels()) > 12:
-        #     ax = sns.setp(ax.axes.get_xticklabels(), visible=False)
-        #     ax = sns.setp(ax.axes.get_xticklabels()[::4], visible=True)
+        #if more than 12 xticks, show only every third label
         if len(ax.get_xticklabels()) > 12:
             for i, label in enumerate(ax.xaxis.get_major_ticks()):
                 if i % 3 != 0:
@@ -99,13 +117,19 @@ class Data():
                 
         ax.legend([],[], frameon=False)
         ax.grid(True)
-        #fig.tight_layout()
-        #fig.show()
+        plt.tight_layout()
+        plt.show()
 
-
-    def plot_seasonal_subseries(self):
+    def plot_seasonal_subseries(self, col_name: str):
         #plot seasonal subseries
-        pass
+        from statsmodels.graphics.tsaplots import month_plot
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 6))
+        # fig, ax = plt.subplot(figsize=(16, 6))
+        data_temp = self.data[[col_name]].resample("MS").sum() #double [[]] to keep as df
+        month_plot(data_temp[col_name], ylabel="cOUNT", ax=ax) #col_name.capitalize()
+        #month_plot(self.data[col_name], ylabel=col_name.capitalize(), ax=ax[0])
+
+
  
     def plot_acf(self):
         pass
