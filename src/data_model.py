@@ -1,8 +1,10 @@
 #%% Make DATA class for dataframe
 # so i can add methods for plotting etc.
 from matplotlib import pyplot as plt
+import matplotlib
 import seaborn as sns
 import pandas as pd
+
 
 class Data():
     # Class for the processed data, which contains methods for plotting
@@ -129,14 +131,99 @@ class Data():
         month_plot(data_temp[col_name], ylabel="cOUNT", ax=ax) #col_name.capitalize()
         #month_plot(self.data[col_name], ylabel=col_name.capitalize(), ax=ax[0])
 
+    def plot_daily_heatmap(self, col_name: str):
+        #plot heatmap for daily values:
+        import dayplot as dp
+        import calplot
 
- 
-    def plot_acf(self):
-        pass
 
-    def plot_pacf(self):
-        pass
+        dp.calendar(
+            dates=self.data.index,
+            values=self.data[col_name]
+        )
+
+
+
+
 
     def plot_overview(self):
         # aggregate method to plot multiple functions
         pass
+
+    #----------------------------------------------------------------------------------------------
+    # TIME SERIES PLOTS (acf etc.)
+    #----------------------------------------------------------------------------------------------
+
+
+    def plot_autocorrelation(self, col_name: str):
+        # from pandas.plotting import autocorrelation_plot
+        # autocorrelation_plot(self.data[col_name])
+        # plt.show()
+
+        #new:
+        from statsmodels.graphics.tsaplots import plot_acf
+
+        plot_acf(x=self.data[col_name])
+        plt.show()
+
+
+
+    def plot_partial_autocorrelation(self, col_name: str):
+        from statsmodels.graphics.tsaplots import plot_pacf
+
+        plot_pacf(x=self.data[col_name])
+        plt.show()
+
+
+    #----------------------------------------------------------------------------------------------
+    # DECOMPOSITION
+    #----------------------------------------------------------------------------------------------
+    #TODO: how to do it? do i want ot have a function, that iterates+decomposes every value?
+    # Or only the main value (total count), or main values (total count, ec_bg/rh_count, pat_bg/rh_count, etc?)
+
+    def decompose_one(self, col_name: str, model: str='additive', period=7):
+        #maybe function to target only one column to decompose?
+        from statsmodels.tsa.seasonal import seasonal_decompose
+
+        result = seasonal_decompose(self.data[col_name], model=model, period=period)
+        print(result.trend)
+        print(result.seasonal)
+        print(result.resid)
+        print(result.observed)
+
+        # Visualize:
+        #TODO: tune plot
+        result.plot()
+        plt.show()
+
+    def decompose_all(self, model: str='additive', period: int=7):
+        #maybe function to decompose multiple/all columns? or just one fct, 
+        # where it iterates over models (and i can pass df.columns minus date)?
+        from statsmodels.tsa.seasonal import seasonal_decompose
+
+        #TODO: add functionality to decompose all columns
+        # i think now its the same as decompose one? (see original in 'viz.py')
+        result = seasonal_decompose(self.data, model=model, period=period)
+        print(result.trend)
+        print(result.seasonal)
+        print(result.resid)
+        print(result.observed)
+
+        # Visualize:
+        #TODO: tune plot
+        result.plot()
+        plt.show()
+
+
+    def multiple_decompose(self, col_name: str, periods: list):
+        # col = col to decompose, i.e. y, for example "count"
+        from statsmodels.tsa.seasonal import MSTL #multiple seasonal decompose
+
+        mstl = MSTL(self.data[col_name], periods=periods)
+        res = mstl.fit()
+
+        res.plot()
+        plt.show()
+
+        #return mstl
+

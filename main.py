@@ -8,7 +8,6 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 
 
-
 from src import clean
 from src import config
 from src import data_model
@@ -18,6 +17,8 @@ from src import process
 from src import viz
 
 
+#For developing purposes:
+from importlib import reload # python 2.7 does not require this
 print(load.__file__)
 print(clean.__file__)
 
@@ -67,7 +68,7 @@ load.show_info(df=df)
 
 
 #---------------------------------------------------------------------------------
-# -- VISUALIZE --
+# -- VISUALIZE OOP --
 # --------------------------------------------------------------------------------
 # Daily average ________________________________________________________________
 # TODO: wrap in function (or add to Model?, because its already cleaned+processed here, so next step
@@ -77,6 +78,8 @@ load.show_info(df=df)
 
 #%%
 # Load data as Class Data:
+#TODO: rename previous 'df' to 'df_preprocessed' or something, 
+# to differentiate between Data object and DataFrame object
 df = data_model.Data(data=df)
 #%%
 df.print_head()
@@ -89,6 +92,50 @@ df.plot_seasonal(plot_type='daily', col_name='count')
 df.plot_boxplots(col_name='count')
 df.plot_seasonal_subseries(col_name='count') #NOTE: i think it works, but not enough dummy data.
 #TODO: check if seasonal subseries plot works with multi-year data
+
+
+#%%
+#Decompose
+df.decompose_one(col_name='count')
+#df.decompose_all("count")
+
+# mulitple decomposition (daily + weekly)
+df.multiple_decompose(col_name="count", periods=[24, 24*7])
+
+
+
+
+
+#%%
+#Time series plots (acf, pacf etc)
+df.plot_autocorrelation(col_name='count')
+df.plot_partial_autocorrelation(col_name='count')
+
+
+#%%
+df.plot_daily_heatmap(col_name='count')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #%%
