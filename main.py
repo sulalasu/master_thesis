@@ -13,7 +13,7 @@ from src import config
 from src import data_model
 from src import load
 from src import model
-from src import process
+from src import transform
 from src import viz
 
 
@@ -116,55 +116,33 @@ df.plot_partial_autocorrelation(col_name='count')
 df.plot_daily_heatmap(col_name='count')
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #%%
 
-daily_average = df["count"].mean()
+import holidays
 
-sns.lineplot(x="date", y="count", data=df)
-plt.axhline(y=daily_average, color="black", label="average")
-
-plt.show()
+vie_holidays = holidays.country_holidays('Austria', subdiv='W')
 
 
-# Plot autocorrelation
-viz.autocorr(df["count"])
+print(vie_holidays)
 
-#%% Weekly average  ________________________________________________________________
+vie_holidays.get('2024-01-01')
 
-
-#%% Monthly average  ________________________________________________________________
-
-
-# Decomposition  ________________________________________________________________
-# viz.decompose_one(df, model="additive", column="count", period=7)
+print(vie_holidays.is_working_day('2024-01-01'))
+print(vie_holidays.is_working_day('2024-12-24'))
+print(vie_holidays.is_working_day('2005-12-25'))
 
 
 
 
-# mulitple decomposition (daily + weekly)
-viz.multiple_decompose(df, col="count", periods=[24, 24*7])
+
+
+
+
+
+
+
+
+
 
 
 #%% ------------------------------------------------------------------------------
@@ -176,7 +154,6 @@ viz.multiple_decompose(df, col="count", periods=[24, 24*7])
 #detrending/plotting:
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.tsa.stattools import adfuller
-
 
 plot_acf(df["count"])
 #%% Detrend ______________________________________________________________________
@@ -414,9 +391,9 @@ print(arima.model_fit)
 #----------------------------------------------------------------------------------
 
 # Read Data
-df = load.load_data(path="data/01_raw/testdaten.tsv")
+df_raw = load.load_data(path="data/01_raw/testdaten.tsv")
 
-load.show_info(df=df)
+load.show_info(df=df_raw)
 
 
 #%%--------------------------------------------------------------------------------
@@ -424,18 +401,18 @@ load.show_info(df=df)
 #----------------------------------------------------------------------------------
 #unify dates, columns etc. rename stuff
 
-df = clean.clean_data(df)
+df_clean = clean.clean_data(df_raw)
 
 #Check what unique vals are present in df
-clean.check_unique_values(df)
+clean.check_unique_values(df_clean)
 
-df.to_csv(path_or_buf="./data/02_intermediate/intermediate_output.csv", sep=",")
+df_clean.to_csv(path_or_buf="./data/02_intermediate/intermediate_output.csv", sep=",")
 
 
 
 
 #%%--------------------------------------------------------------------------------
-# PROCESSING
+# TRANSFORMING/PROCESSING
 #----------------------------------------------------------------------------------
 # remove duplicates/NAs, 
 # maybe imputation, but i think i have vals for everyday, so rather check for outliers?
@@ -444,8 +421,17 @@ df.to_csv(path_or_buf="./data/02_intermediate/intermediate_output.csv", sep=",")
 # splitting in test/training etc. here or as extra step/model step?
 
 #TODO: load data from csv
+df_processed = load.load_data(path="data/02_intermediate/intermediate_output.csv")
 
 # Proces....
+#add external data (holidays weather (temp, precipitation), covid/influenca cases)
+#NOTE: covid/grippe muss evnetuell imputiert werden da nur wöchentlich
+#NOTE: kann gut zeigen, dass wien gleichen verlauf hat wie bundesländer, daher kann ich Ö-weite Daten
+# nehmen, falls es keine wien-spezifischen Daten gibt.
+
+# make daily aggregations for categorical variables
+df_processed = transform.transform_data(df_processed)
+
 
 
 #TODO: save data to csv

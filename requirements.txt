@@ -9,3 +9,4 @@ tensorflow
 statsmodels
 dayplot #for daily heatmaps
 calplot #alternative for daily heatmaps
+holidays
