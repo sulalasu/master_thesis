@@ -31,10 +31,14 @@ class Data():
         print(self.data.head())
 
 
-    def plot_line(self):
+    def plot_line(self, col_name: str):
         #simple line plot
         fig, ax = plt.subplots()
-        ax.plot(self.data[0])
+        if col_name == None:
+            ax.plot(self.data[0])
+        else:
+            ax.plot(self.data[col_name])
+
         plt.show()
 
     def plot_boxplots(self, col_name: str):

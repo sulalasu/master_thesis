@@ -11,7 +11,7 @@
 # src.cleaning.my_func()
 from . import load
 from . import clean
-from . import process
+from . import transform
 from . import viz
 from . import utils
 from . import config
