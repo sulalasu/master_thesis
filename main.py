@@ -23,6 +23,169 @@ print(load.__file__)
 print(clean.__file__)
 
 
+# %%
+
+#%%--------------------------------------------------------------------------------
+# INPUT
+#----------------------------------------------------------------------------------
+
+# Read Data
+df_raw = load.load_data(path="data/01_raw/testdaten.tsv")
+
+load.show_info(df=df_raw)
+
+
+#%%--------------------------------------------------------------------------------
+# CLEANING 
+#----------------------------------------------------------------------------------
+#unify dates, columns etc. rename stuff
+
+df_clean = clean.clean_data(df_raw)
+
+#Check what unique vals are present in df
+clean.check_unique_values(df_clean)
+
+df_clean.to_csv(path_or_buf="./data/02_intermediate/intermediate_output.csv", sep=",")
+
+
+
+
+#%%--------------------------------------------------------------------------------
+# TRANSFORMING/PROCESSING
+#----------------------------------------------------------------------------------
+# remove duplicates/NAs, 
+# maybe imputation, but i think i have vals for everyday, so rather check for outliers?
+# There is univariate (LOCF, NOCB) and multivariate imputation (sklearn: IterativeImputer)
+# make STATIONARY! (if all models need that, otherwise make it a member function)
+# splitting in test/training etc. here or as extra step/model step?
+
+#TODO: load data from csv
+df_processed = load.load_data(path="data/02_intermediate/intermediate_output.csv")
+
+# Proces....
+#add external data (holidays weather (temp, precipitation), covid/influenca cases)
+#NOTE: covid/grippe muss evnetuell imputiert werden da nur wöchentlich
+#NOTE: kann gut zeigen, dass wien gleichen verlauf hat wie bundesländer, daher kann ich Ö-weite Daten
+# nehmen, falls es keine wien-spezifischen Daten gibt.
+
+# make daily aggregations for categorical variables
+df_processed = transform.transform_data(df_processed)
+
+
+
+#TODO: save data to csv
+
+#%%--------------------------------------------------------------------------------
+# DATA VIZ (EXPLORATION)
+#----------------------------------------------------------------------------------
+
+#TODO: save to csv
+
+
+
+#%%--------------------------------------------------------------------------------
+# MODEL BUILDING
+#----------------------------------------------------------------------------------
+
+
+#TODO: load data from csv
+
+
+#TODO: look into OOP + config.yml
+#sarima = Model1(config[0])
+#sarima.split([80, 20])
+#sarima.run(parma1, param2, parma3...)
+#sarima.predict(x_days)
+#sarima.test()
+#sarima.evaluate()
+#sarima.
+
+#all of the above could be grouped into sarima.run() (if certain stuff is set up before, like vals for params and split!)
+
+
+
+# if functional:
+# sarima = statsmodels.sarima(xx, xx, xx) # oder so
+
+
+
+
+#TODO: save data to csv
+
+
+
+
+#%%--------------------------------------------------------------------------------
+# DATA VIZ (FINISHED MODEL) 
+#----------------------------------------------------------------------------------
+# Plot prediction vs actual
+
+# If OOP:
+# sarima.plot_time()
+# sarima.plot_polar()
+
+# lstm.plot_time()
+# etc. (could even loop: for obj in [sarima, lstm]: obj.plot_time() obj.plot_polar())
+
+# if functional:
+
+#plot_time(sarima)  # could also usy apply or similar to use list or loop: for mod in models: plot_time(mod)
+
+#TODO: save to csv
+
+#%%--------------------------------------------------------------------------------
+# EVALUATION
+#----------------------------------------------------------------------------------
+
+# TODO: load data from csv
+
+# evaluate ....
+# print evaluations/tests like mae, mape, etc.
+
+
+# TODO: save data to csv
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # SAMPLE DATA
 #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -383,128 +546,4 @@ print(arima.model_fit)
 #arima.create_model()
 #arima.test_model()
 #arima.evaluate_model()
-
-# %%
-
-#%%--------------------------------------------------------------------------------
-# INPUT
-#----------------------------------------------------------------------------------
-
-# Read Data
-df_raw = load.load_data(path="data/01_raw/testdaten.tsv")
-
-load.show_info(df=df_raw)
-
-
-#%%--------------------------------------------------------------------------------
-# CLEANING 
-#----------------------------------------------------------------------------------
-#unify dates, columns etc. rename stuff
-
-df_clean = clean.clean_data(df_raw)
-
-#Check what unique vals are present in df
-clean.check_unique_values(df_clean)
-
-df_clean.to_csv(path_or_buf="./data/02_intermediate/intermediate_output.csv", sep=",")
-
-
-
-
-#%%--------------------------------------------------------------------------------
-# TRANSFORMING/PROCESSING
-#----------------------------------------------------------------------------------
-# remove duplicates/NAs, 
-# maybe imputation, but i think i have vals for everyday, so rather check for outliers?
-# There is univariate (LOCF, NOCB) and multivariate imputation (sklearn: IterativeImputer)
-# make STATIONARY! (if all models need that, otherwise make it a member function)
-# splitting in test/training etc. here or as extra step/model step?
-
-#TODO: load data from csv
-df_processed = load.load_data(path="data/02_intermediate/intermediate_output.csv")
-
-# Proces....
-#add external data (holidays weather (temp, precipitation), covid/influenca cases)
-#NOTE: covid/grippe muss evnetuell imputiert werden da nur wöchentlich
-#NOTE: kann gut zeigen, dass wien gleichen verlauf hat wie bundesländer, daher kann ich Ö-weite Daten
-# nehmen, falls es keine wien-spezifischen Daten gibt.
-
-# make daily aggregations for categorical variables
-df_processed = transform.transform_data(df_processed)
-
-
-
-#TODO: save data to csv
-
-#%%--------------------------------------------------------------------------------
-# DATA VIZ (EXPLORATION)
-#----------------------------------------------------------------------------------
-
-#TODO: save to csv
-
-
-
-#%%--------------------------------------------------------------------------------
-# MODEL BUILDING
-#----------------------------------------------------------------------------------
-
-
-#TODO: load data from csv
-
-
-#TODO: look into OOP + config.yml
-#sarima = Model1(config[0])
-#sarima.split([80, 20])
-#sarima.run(parma1, param2, parma3...)
-#sarima.predict(x_days)
-#sarima.test()
-#sarima.evaluate()
-#sarima.
-
-#all of the above could be grouped into sarima.run() (if certain stuff is set up before, like vals for params and split!)
-
-
-
-# if functional:
-# sarima = statsmodels.sarima(xx, xx, xx) # oder so
-
-
-
-
-#TODO: save data to csv
-
-
-
-
-#%%--------------------------------------------------------------------------------
-# DATA VIZ (FINISHED MODEL) 
-#----------------------------------------------------------------------------------
-# Plot prediction vs actual
-
-# If OOP:
-# sarima.plot_time()
-# sarima.plot_polar()
-
-# lstm.plot_time()
-# etc. (could even loop: for obj in [sarima, lstm]: obj.plot_time() obj.plot_polar())
-
-# if functional:
-
-#plot_time(sarima)  # could also usy apply or similar to use list or loop: for mod in models: plot_time(mod)
-
-#TODO: save to csv
-
-#%%--------------------------------------------------------------------------------
-# EVALUATION
-#----------------------------------------------------------------------------------
-
-# TODO: load data from csv
-
-# evaluate ....
-# print evaluations/tests like mae, mape, etc.
-
-
-# TODO: save data to csv
-
-
 
