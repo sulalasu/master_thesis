@@ -23,13 +23,13 @@ def transform_data(df):
     df = aggregate_categorical_cols(df, cols_to_sum)
 
 
-    df = add_daily_total(df)
+    #df = add_daily_total(df)
 
 
-    df = add_working_days(df)
+    #df = add_working_days(df)
 
 
-    df = add_weather_data(df)
+    #df = add_weather_data(df)
 
 
     return df

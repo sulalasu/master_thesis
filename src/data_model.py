@@ -14,7 +14,7 @@ class Data():
     def __init__(self, data: pd.DataFrame):
         #index is datetime 
         self.data = data
-        self.add_year_month_day()
+        #self.add_year_month_day()
 
     def add_year_month_day(self) -> None:
         """Add 'year', 'month', 'day' as separate columns"""

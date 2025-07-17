@@ -16,20 +16,78 @@ date_format_map = {
     "T_ISO" : {"yearfirst" : True}
 }
 
+#Columns with info about EC status ('discarded', 'expired' etc.)
+transfusion_cols = ["ToD", "ToD_N", "ToD_O"]
 
+#Mapping of transfusion status raw --> processed
+#See Mail from 14.7.25
 transfusion_status_map = {
-    "ToD" : {
         "Transfundiert" : "transfused",
-        "Entsorgt" : "discarded"
-    },
-    "ToD_N" : {
-        "VER" : "transfused", #'Verabreicht'
-        "AUS" : "discarded" # QUESTION: Does 'AUS' (='Ausgegeben') mean used or discarded or neither?
-    },
-    "ToD_O" : {
-        "ABG" : "expired"
-    }
+        "VER" : "transfused", #'Verabreicht' = Zum patienten gekommen. Ob tatsächlich verabreicht ist unbekannt
+        "Verkauft": "transfused", #verkauft an andere krankenanstalt; wie 'ausgegeben'
+        "Ausgegeben": "transfused", #Zum patienten gekommen. Ob tatsächlich verabreicht ist unbekannt
+
+
+        "AUS" : "discarded", # 'Ausgegeben'
+        "Entsorgt" : "discarded",
+        
+        "ABG" : "expired", # Abgelaufen == expired
+        "Abgelaufen": "expired", 
+        "expired" : "expired",
+
+
+         #nan : "???" ,
+        "BER" : "???", #NOTE: vermutlich 'bereitgestellt' (wie ausgegeben?)
+        "END" : "???", #NOTE: mapping?
+        "RES" : "???", #NOTE: vermutlich 'reserviert'
+        "RET" : "???", #NOTE: retourniert -- wie klassifizieren?
+        "VRN" : "discarded" #Vernichtet
 }
+
+#NOTE: it would be better imo to have the cleaned value as key and original values as values,
+# so that you dont repeat it so often. But then dict needs to be reversed, for replacement.
+# see solution here https://stackoverflow.com/questions/35491223/inverting-a-dictionary-with-list-values (not implemented!)
+
+#Rhesus factor (EC/PAT) mapping:
+rhesus_factor_map = {
+    "Rh negativ" : "Rh negative",
+    "-" : "Rh negative",
+    "N" : "Rh negative", #TODO: is N Negative or Nicht bestimmt?
+    
+    "Rh positiv" : "Rh positive",
+    "+" : "Rh positive",
+
+    "nan" : "NB",
+    "NBN" : "NB",
+    "Rh nicht bestimmb." : "NB",
+    "KMT Rh n. bestimmb." : "NB",
+
+    "Rh D weak" : "Other",
+    "Rh D var" : "Other"        
+}
+
+#Blood group (EC/PAT) mapping:
+blood_group_map = {
+    "A" : "A",
+    "0" : "0",
+    "0.0" : "0",
+    "B" : "B",
+    "AB" : "AB",
+
+    "NB" : "NB",
+    #"NBN" : "NBN",
+    "BG nicht bestimmb." : "NB"
+}
+
+
+
+#EC type 
+# Values to keep, all other change to "Other"
+# (full bag, split bag etc) -- only two values in relevant amounts
+ec_type_keep = ["EKF", "EKFX"]
+
+
+
 
 
 #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
