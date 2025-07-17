@@ -7,6 +7,8 @@ from numpy import nan
 from pathlib import Path
 
 from src import config
+from src.config import timer_func
+
 
 
 #-----------------------------------------------------------------------------
@@ -75,12 +77,11 @@ def clean_data(df, existing_file_path: str="./data/02_cleaned/output_cleaned.csv
 # (wrapper) functions for main steps
 #-----------------------------------------------------------------------------
 
-
+@timer_func
 def clean_dates(df):
     # Date columns: Unify and merge all date columns
     # DONE Merge all date columns
     # DONE wrap in function
-
     date_cols = [col for col in df.columns if col.startswith("T_")] # or use map: date_cols = date_format_map.keys()
     for col, kwargs in config.date_format_map.items():
         df[col] = pd.to_datetime(df[col], **kwargs).dt.date
@@ -92,7 +93,7 @@ def clean_dates(df):
 
     return df
 
-
+@timer_func
 def clean_transfusion_status(df):
     # Transfusion status: Rename and merge
     # DONE wrap in function
@@ -110,6 +111,7 @@ def clean_transfusion_status(df):
     return df
 
 
+@timer_func
 def split_BG_RH(df, origin, temp_cols, target_cols):
     df[temp_cols[0]] = df[origin].str[:2]#.apply(extract_BG_from_detailed_notation, args=("bg", )) #with .map() conversion_type="bg"
     #extract rhesus factor
@@ -117,11 +119,14 @@ def split_BG_RH(df, origin, temp_cols, target_cols):
     df = df.drop(origin)
     return df
 
+
+@timer_func
 def parse_BG(df, column: str):
     #parses 'column' for BG and maps new values
     df[column] = df[column] #TODO:
     #use config.blood_group_map
 
+@timer_func
 def parse_RH(df, column: str):
     #parses 'column' for RH and maps new values
     df[column] = df[column] #TODO:
@@ -158,6 +163,7 @@ def parse_RH(df, column: str):
 #     return df
 
 
+@timer_func
 def add_not_applicable(df):
     """Fills 'fill_columns' with 'Not applicable', because they're logically cant have a value,
     since no patient was in contact with that EC"""
@@ -173,6 +179,7 @@ def add_not_applicable(df):
 #-----------------------------------------------------------------------------
 
 
+@timer_func
 def merge_to_new_col(df, columns_to_merge: list, new_name: str):
     # Merge multiple non-overlapping columns into one with new_name as the new name
     #WARNING: make sure, there are no rows with overlapping values (like 2 dates)
@@ -193,6 +200,7 @@ def merge_to_new_col(df, columns_to_merge: list, new_name: str):
     df = df.drop(columns_to_merge, axis=1) #, inplace = True)
     return df
 
+@timer_func
 def merge_cols(df, cols):
     "cols=List; Merge two non-overlapping cols with values/nan into the first one in cols, REMOVES second column!"
     print(df[cols[0]])
@@ -203,6 +211,7 @@ def merge_cols(df, cols):
     return df
 
 #Detailed Rh phenotype notation (ccddee) Format to AB0/Rh 
+@timer_func
 def extract_BG_from_detailed_notation(original, conversion_type):
     """Use in df.apply() to extract blood group or rhesus from input string,
     depending if conversion type is bg or rh"""
@@ -234,6 +243,8 @@ def extract_BG_from_detailed_notation(original, conversion_type):
 
 
 
+
+@timer_func
 def check_unique_values(df, hidden_cols=["date", "EC_ID_I_hash", "EC_ID_O_hash"]):
     """Hidden cols for cols that have lots of unique values, like date, hash"""
     #TODO: wrap in function, keep fct call, but comment it out.

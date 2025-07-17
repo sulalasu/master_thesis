@@ -1,5 +1,7 @@
 #Global Variables and settings
 import pandas as pd
+from time import time
+ENABLE_TIMING = True #If true, print messages. #TODO: add logging module to do that
 
 
 
@@ -91,25 +93,18 @@ ec_type_keep = ["EKF", "EKFX"]
 
 
 #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-# TEST DATA
+# Global functions
 #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
+def timer_func(func):
 
-seoul_name_map = {
-    "0": "date",
-    "1": "hour",
-    "2": "temperature", #C
-    "3": "humidity", #%
-    "4": "wind_speed", #m/s
-    "5": "visibility", #10m
-    "6": "dew_point_temp", #C
-    "7": "solar_radiation", #Mj/m2
-    "8": "rainfall", #mm,
-    "9": "snowfall", #cm
-    "10": "seasons", 
-    "11": "holiday",
-    "12": "functioning_day", #[dt: Arbeitstag]
-    "13": "count" 
-}
-
-# %%
+    def wrap_func(*args, **kwargs):
+        if ENABLE_TIMING:
+            t1 = time()
+            result = func(*args, **kwargs)
+            t2 = time()
+            print(f'Function {func.__name__!r} executed in {(t2-t1):.4f}s')
+            return result
+        else:
+            return func(*args, **kwargs)
+    return wrap_func

@@ -22,6 +22,7 @@ import importlib
 print(load.__file__)
 print(clean.__file__)
 
+MSG = True
 
 
 

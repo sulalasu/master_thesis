@@ -1,14 +1,17 @@
 # Read Data
 import pandas as pd
+from src.config import timer_func
 
+@timer_func
 def load_data(path, sep="\t"):
     pd.set_option("display.max_columns", None)
     df = pd.read_csv(path, sep=sep)
-    print("Read raw data f")
+    print(f"Read raw data csv file at {path}")
 
     return df
 
 
+@timer_func
 def show_info(df):
     print(df.head())
     print(df.describe())
