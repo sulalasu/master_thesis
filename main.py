@@ -22,7 +22,6 @@ import importlib
 print(load.__file__)
 print(clean.__file__)
 
-MSG = True
 
 
 
@@ -42,17 +41,30 @@ for col in df_raw.columns:
         tmp = np.array(sorted(tmp))
         print(f"{col}:\n{tmp}\n")
 print(df_raw.columns)
+df_raw = clean.clean_dates(df_raw) #TODO: remove here, enable again in clean_data()
 
 
 
 #%%--------------------------------------------------------------------------------
 # CLEANING 
 #----------------------------------------------------------------------------------
-#unify dates, columns etc. rename stuff
-#importlib.reload(clean)
 
 #Runs only if no file exists at. If not existing, saves df to new file
-df_clean = clean.clean_data(df_raw)
+
+#Sample random days (for testing purposes)
+sampled_values = df_raw.index.to_series().sample(n=500, random_state=42)
+df_raw2 = df_raw[df_raw.index.isin(sampled_values)]
+#Sample random rows
+#df_raw = df_raw.sample(n=90000, random_state=10) #TODO: remove
+#Subset by date range:
+# start_date = pd.to_datetime("2018-01-01")
+# end_date = pd.to_datetime("2020-12-31")
+# df_test = df_test[start_date:end_date]
+#%%
+#unify dates, columns etc. rename stuff
+importlib.reload(clean)
+
+df_clean = clean.clean_data(df_raw2)
 # df_clean.sort_index(inplace=True)
 # #TODO: remove 5 lines:
 # start_date = pd.to_datetime("2018-01-01")
@@ -64,6 +76,15 @@ df_clean = clean.clean_data(df_raw)
 #TODO: Check what unique vals are present in df
 clean.check_unique_values(df_clean.drop(["EC_ID_I_hash", "EC_ID_O_hash", "PAT_WARD"], axis=1))
 
+#%%
+# importlib.reload(config)
+pd.unique(df_clean["EC_RH"])
+df_clean["PAT_RH"] = df_clean["PAT_RH"].replace(config.rhesus_factor_map)
+df_clean["EC_RH"] = df_clean["EC_RH"].replace(config.rhesus_factor_map)
+# pd.unique(df_clean["PAT_RH"])
+# pd.unique(df_clean["PAT_RH"])
+for col in df_clean.columns:
+    print(pd.unique(df_clean[col]))
 #%%
 # Get years with date values in EC_BG_RH:
 date_vals = ['11-22-21', '11-06-21', '11-01-21', '11-17-21', '12-01-21', '11-18-21',

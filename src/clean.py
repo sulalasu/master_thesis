@@ -37,10 +37,18 @@ def clean_data(df, existing_file_path: str="./data/02_cleaned/output_cleaned.csv
         # x 3. split 
         print("Reading and cleaning raw data")
 
-        df = clean_dates(df) #DONE
+        #df = clean_dates(df) #DONE
         #set again to datetime, because first time didnt work? (i think because of merging/missing values)
         #df['date'] = pd.to_datetime(df['date'])
 
+        #TODO: remove
+        #Only keep from 2018 on (for test puproses)
+        start_date = pd.to_datetime("2018-01-01")
+        end_date = pd.to_datetime("2024-12-31")
+        df = df[start_date:end_date]
+        # mask = (df.index >= start_date) & (df.index <= end_date)
+        #mask = (df.index >= "2018-01-01") & (df.index <= "2024-12-31")
+        #df = df.loc[mask]
 
         df = clean_transfusion_status(df) #DONE
 
@@ -56,12 +64,14 @@ def clean_data(df, existing_file_path: str="./data/02_cleaned/output_cleaned.csv
         df = merge_to_new_col(df, columns_to_merge=["PAT_RH", "PAT_RH_temp"], new_name="PAT_RH")
         #parse all _BG/_RH(+temp) columns
         #BG_RH_cols = ["EC_BG", "EC_RH", "PAT_BG", "PAT_RH", "EC_BG_temp", "EC_RH_temp", "PAT_BG_temp", "PAT_RH"]
-        #NOTE: could add top level to dict to map to BG/RH
+        #NOTE: coddddduld add top level to dict to map to BG/RH
         #NOTE: could wrap in function 
         for col in ["EC_BG", "PAT_BG"]:
-            df[col] = df[col].replace(config.rhesus_factor_map)
-        for col in ["EC_RH", "PAT_RH"]:
             df[col] = df[col].replace(config.blood_group_map)
+        for col in ["EC_RH", "PAT_RH"]:
+            df[col] = df[col].replace(config.rhesus_factor_map)
+            print(f"unique values in for loop: {pd.unique(df[col])}")
+        print(f"unique values after for loop: {df.apply(lambda col: col.unique())}")
 
         #add 'Not applicaple' to PAT_BG, PAT_RH, PAT_WARD where type==expired 
         #TODO: better fct name
@@ -89,6 +99,7 @@ def clean_dates(df):
     df = merge_to_new_col(df, date_cols, "date")
 
     df = df.set_index("date")
+    df.index = pd.to_datetime(df.index)
     df = df.sort_index()
 
     return df
@@ -114,9 +125,12 @@ def clean_transfusion_status(df):
 @timer_func
 def split_BG_RH(df, origin, temp_cols, target_cols):
     df[temp_cols[0]] = df[origin].str[:2]#.apply(extract_BG_from_detailed_notation, args=("bg", )) #with .map() conversion_type="bg"
+    df[temp_cols[0]] = df[temp_cols[0]].str.strip()
     #extract rhesus factor
     df[temp_cols[1]] = df[origin].str[2]#.apply(extract_BG_from_detailed_notation, args=("rh", ))
-    df = df.drop(origin)
+    df[temp_cols[1]] = df[temp_cols[1]].str.strip()
+
+    df = df.drop(origin, axis="columns")
     return df
 
 

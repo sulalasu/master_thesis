@@ -2,7 +2,7 @@
 import pandas as pd
 from time import time
 ENABLE_TIMING = True #If true, print messages. #TODO: add logging module to do that
-
+ENABLE_LOGGING = True
 
 
 # DATE: Mapping of column names with their respective format
@@ -36,14 +36,14 @@ transfusion_status_map = {
         "ABG" : "expired", # Abgelaufen == expired
         "Abgelaufen": "expired", 
         "expired" : "expired",
+        "VRN" : "discarded", #Vernichtet
 
 
          #nan : "???" ,
         "BER" : "???", #NOTE: vermutlich 'bereitgestellt' (wie ausgegeben?)
         "END" : "???", #NOTE: mapping?
         "RES" : "???", #NOTE: vermutlich 'reserviert'
-        "RET" : "???", #NOTE: retourniert -- wie klassifizieren?
-        "VRN" : "discarded" #Vernichtet
+        "RET" : "???" #NOTE: retourniert -- wie klassifizieren?
 }
 
 #NOTE: it would be better imo to have the cleaned value as key and original values as values,
@@ -63,9 +63,11 @@ rhesus_factor_map = {
     "NBN" : "NB",
     "Rh nicht bestimmb." : "NB",
     "KMT Rh n. bestimmb." : "NB",
+    "Sonderfall" : "NB",
 
-    "Rh D weak" : "Other",
-    "Rh D var" : "Other"        
+    "Rh D weak" : "Rh weak",
+    "Rh D var" : "Rh weak",
+    "Rh Du" : "Rh weak"
 }
 
 #Blood group (EC/PAT) mapping:
@@ -97,7 +99,7 @@ ec_type_keep = ["EKF", "EKFX"]
 #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 def timer_func(func):
-
+    #todo: add either own logging func+decorators or put it inside here?
     def wrap_func(*args, **kwargs):
         if ENABLE_TIMING:
             t1 = time()
