@@ -51,15 +51,16 @@ df_raw = clean.clean_dates(df_raw) #TODO: remove here, enable again in clean_dat
 
 #Runs only if no file exists at. If not existing, saves df to new file
 
+#TODO: remove
 #Sample random days (for testing purposes)
-sampled_values = df_raw.index.to_series().sample(n=500, random_state=42)
-df_raw2 = df_raw[df_raw.index.isin(sampled_values)]
+# sampled_values = df_raw.index.to_series().sample(n=500, random_state=42)
+# df_raw2 = df_raw[df_raw.index.isin(sampled_values)]
 #Sample random rows
 #df_raw = df_raw.sample(n=90000, random_state=10) #TODO: remove
 #Subset by date range:
-# start_date = pd.to_datetime("2018-01-01")
-# end_date = pd.to_datetime("2020-12-31")
-# df_test = df_test[start_date:end_date]
+start_date = pd.to_datetime("2016-01-01")
+end_date = pd.to_datetime("2020-12-31")
+df_test = df_test[start_date:end_date]
 #%%
 #unify dates, columns etc. rename stuff
 importlib.reload(clean)
@@ -76,56 +77,11 @@ df_clean = clean.clean_data(df_raw2)
 #TODO: Check what unique vals are present in df
 clean.check_unique_values(df_clean.drop(["EC_ID_I_hash", "EC_ID_O_hash", "PAT_WARD"], axis=1))
 
-#%%
-# importlib.reload(config)
-pd.unique(df_clean["EC_RH"])
-df_clean["PAT_RH"] = df_clean["PAT_RH"].replace(config.rhesus_factor_map)
-df_clean["EC_RH"] = df_clean["EC_RH"].replace(config.rhesus_factor_map)
-# pd.unique(df_clean["PAT_RH"])
-# pd.unique(df_clean["PAT_RH"])
-for col in df_clean.columns:
-    print(pd.unique(df_clean[col]))
-#%%
-# Get years with date values in EC_BG_RH:
-date_vals = ['11-22-21', '11-06-21', '11-01-21', '11-17-21', '12-01-21', '11-18-21',
- '11-24-21', '11-29-21', '11-21-21', '11-13-21', '11-05-21', '11-19-21'
- '11-11-21', '11-08-21', '11-07-21', '11-16-21', '11-02-21', '11-10-21'
- '11-14-21', '11-12-21', '11-23-21', '11-20-21', '11-03-21', '11-15-21'
- '11-30-21', '11-04-21', '11-27-21', '11-09-21', '11-25-21', '11-28-21'
- '12-02-21', '11-26-21', '12-03-21', '12-04-21', '12-07-21', '12-06-21'
- '12-05-21', '12-08-21', '12-10-21', '12-12-21', '12-09-21', '12-11-21'
- '12-13-21', '12-16-21', '12-17-21', '12-14-21', '12-19-21', '12-15-21'
- '12-18-21', '12-23-21', '12-25-21', '12-20-21', '12-21-21', '12-22-21'
- '12-24-21', '12-29-21', '12-28-21', '12-26-21', '12-27-21', '12-30-21'
- '12-31-21', '01-02-22', '01-01-22', '01-03-22', '01-04-22', '01-05-22'
- '01-07-22', '01-06-22', '01-08-22', '01-09-22', '01-11-22', '01-12-22'
- '01-13-22', '01-10-22', '01-14-22', '01-15-22', '01-16-22', '01-17-22'
- '01-18-22', '01-22-22', '01-19-22', '01-21-22', '01-23-22', '01-20-22'
- '01-26-22', '01-27-22', '01-29-22', '01-25-22', '01-28-22', '01-31-22'
- '01-24-22', '01-30-22', '02-01-22']
-df_wrong_vals = df_clean['EC_BG_RH'].isin(date_vals).to_frame()
-df_wrong_vals_complete = df_clean[df_clean['EC_BG_RH'].isin(date_vals)]
-matching_rows = df_wrong_vals.index[df_wrong_vals['EC_BG_RH'] == True]
-affected_dates = matching_rows.to_frame().index.unique().to_frame().reset_index(drop=True)
-#unique_date = affected_dates.unique()
-#matching_dates.to_
-df_wrong_vals_complete.to_csv("./data/00_problems_data/EC_BG_RH_with_date_vals.csv", index=False)
-affected_dates.to_csv("./data/00_problems_data/EC_BG_RH_affected_days.csv", index=False)
+
 
 #%%
-# Get days with '80400051' or '80400051.01' in PAT_WARD
-unique_ward_vals = df_clean['PAT_WARD'].unique()
-ward_vals = []
-for val in unique_ward_vals:
-    if not str(val).startswith("901"):
-        ward_vals.append(val)
-#Manually add number vals to list
-ward_num_vals = [ '46272.15',  '33421.16', '04972.16', '95630001', '80400051', '80400051.0']
-df_wrong_wards = df_clean[df_clean['PAT_WARD'].isin(ward_num_vals)]
-
-df_wrong_wards.to_csv("./data/00_problems_data/PAT_WARD_with_nums.csv", index=False)
-df_wrong_wards.index.unique().to_frame().to_csv("./data/00_problems_data/PAT_WARD_affected_days.csv", index=False)
-#%%
+# Plot frequency counts for unique values in every column
+#TODO: move into viz.py
 for col_name, col in df_clean.items():
     if col_name in ["EC_ID_O_hash", "EC_ID_I_hash"]:
         continue
@@ -133,26 +89,21 @@ for col_name, col in df_clean.items():
     col.value_counts()[:40].plot(kind="bar", title=col_name)
     plt.show()
 
+
+
 #%%
 df_pat_ward_daily = df_clean[df_clean['PAT_WARD'] == "901AN331"]
-df_pat_ward_daily['date'] = pd.to_datetime(df_pat_ward_daily['date'])
+#df_pat_ward_daily['date'] = pd.to_datetime(df_pat_ward_daily['date'])
 #df_pat_ward_daily = df_pat_ward_daily.set_index('date')
 
 df_pat_ward_daily.info()
-df_filtered = df_pat_ward_daily.groupby(df_pat_ward_daily['date'].dt.date).count()
+df_filtered = df_pat_ward_daily.groupby(df_pat_ward_daily.index.date).count()
 #%%
 df_filtered.head()
 df_filtered['EC_BG'].plot(x='date')
 
-#%%
-#sample = df_clean.groupby([df_clean['Date_Time'].dt.date]).mean()
-df_clean.info()
 
-#%%
-# Look at distinct values:
-excluded_cols = ['']
 
-#%%
 
 
 
@@ -166,7 +117,7 @@ excluded_cols = ['']
 # splitting in test/training etc. here or as extra step/model step?
 
 #DONE: load data from csv
-df_processed = load.load_data(path="data/02_intermediate/intermediate_output.csv")
+#df_processed = load.load_data(path="data/02_intermediate/intermediate_output.csv")
 
 # Proces....
 #add external data (holidays weather (temp, precipitation), covid/influenca cases)
@@ -175,7 +126,7 @@ df_processed = load.load_data(path="data/02_intermediate/intermediate_output.csv
 # nehmen, falls es keine wien-spezifischen Daten gibt.
 
 # make daily aggregations for categorical variables
-df_processed = transform.transform_data(df_processed)
+df_processed = transform.transform_data(df_clean)
 #%%
 
 

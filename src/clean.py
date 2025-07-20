@@ -14,7 +14,9 @@ from src.config import timer_func
 #-----------------------------------------------------------------------------
 # Main wrapper function for cleaning:
 #-----------------------------------------------------------------------------
-def clean_data(df, existing_file_path: str="./data/02_cleaned/output_cleaned.csv", new_file_path: str="./data/02_cleaned/output_cleaned.csv"):
+def clean_data(df, 
+               existing_file_path: str="./data/02_cleaned/output_cleaned.csv", 
+               new_file_path: str="./data/02_cleaned/output_cleaned.csv"):
     #load cleaned file if exists (so i can skip cleaning step):
     my_file = Path(existing_file_path)
 
@@ -57,11 +59,13 @@ def clean_data(df, existing_file_path: str="./data/02_cleaned/output_cleaned.csv
         #split cols EC_BG_RH and PAT_BG_RH to separate EC_BG_temp/EC_RH_temp and PAT_BG_temp/PAT_RH_temp
         df = split_BG_RH(df, origin="EC_BG_RH", temp_cols=["EC_BG_temp", "EC_RH_temp"], target_cols=["EC_BG", "EC_RH"])
         df = split_BG_RH(df, origin="PAT_BG_RH", temp_cols=["PAT_BG_temp", "PAT_RH_temp"], target_cols=["PAT_BG", "PAT_RH"])
+        
         #Merge into EC_BG, EC_RH, PAT_BG, PAT_RH, drop old columns
         df = merge_to_new_col(df, columns_to_merge=["EC_BG", "EC_BG_temp"], new_name="EC_BG")
         df = merge_to_new_col(df, columns_to_merge=["EC_RH", "EC_RH_temp"], new_name="EC_RH")
         df = merge_to_new_col(df, columns_to_merge=["PAT_BG", "PAT_BG_temp"], new_name="PAT_BG")
         df = merge_to_new_col(df, columns_to_merge=["PAT_RH", "PAT_RH_temp"], new_name="PAT_RH")
+        
         #parse all _BG/_RH(+temp) columns
         #BG_RH_cols = ["EC_BG", "EC_RH", "PAT_BG", "PAT_RH", "EC_BG_temp", "EC_RH_temp", "PAT_BG_temp", "PAT_RH"]
         #NOTE: coddddduld add top level to dict to map to BG/RH
@@ -73,9 +77,17 @@ def clean_data(df, existing_file_path: str="./data/02_cleaned/output_cleaned.csv
             print(f"unique values in for loop: {pd.unique(df[col])}")
         print(f"unique values after for loop: {df.apply(lambda col: col.unique())}")
 
+        #Transform EC_Type to other if not in ["EKF", "EKFX"]
+        # (these two make up 54%/38% of values, next is only 2%)
+        allowed_ec_types = ["EKF", "EKFX"]
+        df.loc[~df["EC_TYPE"].isin(allowed_ec_types), "EC_TYPE"] = "Other"
+
+
         #add 'Not applicaple' to PAT_BG, PAT_RH, PAT_WARD where type==expired 
         #TODO: better fct name
         df = add_not_applicable(df)
+
+
 
         #Save new file:
         print(f"Write new file to {new_file_path}")
