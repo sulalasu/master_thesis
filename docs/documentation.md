@@ -1,5 +1,9 @@
 Documentation/Lab journal of what I was doing: date and description.
 
+Unzip files (.gz.cpt):
+ccrypt -d [filename]
+gunzip -d [filename]
+
 25.5.2025
 List of all columns + grouping:
 

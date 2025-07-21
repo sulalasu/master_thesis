@@ -30,7 +30,7 @@ print(clean.__file__)
 #----------------------------------------------------------------------------------
 
 # Read Data
-df_raw = load.load_data(path="data/01_raw/blood-data_complete.tsv")
+df_raw = load.load_data(path="data/01_raw/blood-data_complete_2025-07-16.tsv")
 # df_raw = load.load_data(path="data/01_raw/testdaten.tsv")
 
 load.show_info(df=df_raw)
@@ -58,14 +58,14 @@ df_raw = clean.clean_dates(df_raw) #TODO: remove here, enable again in clean_dat
 #Sample random rows
 #df_raw = df_raw.sample(n=90000, random_state=10) #TODO: remove
 #Subset by date range:
-start_date = pd.to_datetime("2016-01-01")
+start_date = pd.to_datetime("201-01-01")
 end_date = pd.to_datetime("2020-12-31")
 df_test = df_test[start_date:end_date]
 #%%
 #unify dates, columns etc. rename stuff
 importlib.reload(clean)
 
-df_clean = clean.clean_data(df_raw2)
+df_clean = clean.clean_data(df_raw)
 # df_clean.sort_index(inplace=True)
 # #TODO: remove 5 lines:
 # start_date = pd.to_datetime("2018-01-01")
@@ -118,6 +118,7 @@ df_filtered['EC_BG'].plot(x='date')
 
 #DONE: load data from csv
 #df_processed = load.load_data(path="data/02_intermediate/intermediate_output.csv")
+importlib.reload(transform)
 
 # Proces....
 #add external data (holidays weather (temp, precipitation), covid/influenca cases)
