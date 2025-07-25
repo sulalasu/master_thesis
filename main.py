@@ -219,6 +219,42 @@ df[pd.to_datetime("2024-01-01"):pd.to_datetime("2024-12-31")].plot_daily_heatmap
 
 #TODO: save to csv
 
+#%% ------------------------------------------------------------------------------
+# -- RUN MODEL --
+importlib.reload(model)
+
+arima = model.ModelSarima(df)
+arima.make_model(col="count", p=1, d=1, q=1)
+arima.fit()
+arima.print_fit_summary()
+arima.predict()
+
+#%% 
+arima.df.head()
+arima.df.info()
+
+#%%
+# arima.test_class_implementation()
+#%%
+# arima.split()
+
+#%%
+arima.fit("count", 1, 1, 1) #p=lag von signifikanz in autocorr.
+
+#%% Show summary
+print(arima.model_fit)
+# arima.fit_summary()
+#arima.make_stationary()
+#arima.split()
+#arima.create_model()
+#arima.test_model()
+#arima.evaluate_model()
+
+
+
+
+
+
 #%%--------------------------------------------------------------------------------
 # EVALUATION
 #----------------------------------------------------------------------------------
@@ -605,31 +641,4 @@ plt.plot(test)
 plt.plot(predictions, color="red")
 plt.show()
 
-
-
-#%% ------------------------------------------------------------------------------
-# -- RUN MODEL --
-
-arima = model.ModelSarima(df)
-
-#%% 
-arima.df.head()
-arima.df.info()
-
-#%%
-# arima.test_class_implementation()
-#%%
-# arima.split()
-
-#%%
-arima.fit("count", 1, 1, 1) #p=lag von signifikanz in autocorr.
-
-#%% Show summary
-print(arima.model_fit)
-# arima.fit_summary()
-#arima.make_stationary()
-#arima.split()
-#arima.create_model()
-#arima.test_model()
-#arima.evaluate_model()
 
