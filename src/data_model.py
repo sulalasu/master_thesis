@@ -4,17 +4,33 @@ from matplotlib import pyplot as plt
 import matplotlib
 import seaborn as sns
 import pandas as pd
+import dayplot as dp
+import calplot
 
 
-class Data():
+from statsmodels.graphics.tsaplots import month_plot
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.graphics.tsaplots import plot_pacf
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.seasonal import MSTL #multiple seasonal decompose
+
+
+
+class Data(pd.DataFrame):
     # Class for the processed data, which contains methods for plotting
     # and transforming, which will be passed into class 'Model'
     # TODO: change parameter of model to be of 'Data' type 
-
+    
+    #Subclass pandas DataFrame, to still use df methods (info(), head(), slicing[], ...)
     def __init__(self, data: pd.DataFrame):
         #index is datetime 
-        self.data = data
+        super().__init__(data)
+        self.data = data.sort_index()
         #self.add_year_month_day()
+        
+    @property
+    def _constructor(self):
+        return Data
 
     def add_year_month_day(self) -> None:
         """Add 'year', 'month', 'day' as separate columns"""
@@ -44,12 +60,17 @@ class Data():
     def plot_boxplots(self, col_name: str):
         fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(15, 6))
 
-        sns.boxplot(x=self.data['year'], y=self.data[col_name], ax=ax[0])
+        sns.boxplot(x=self.data.index.year, y=self.data[col_name], ax=ax[0])
         ax[0].set_title('Year-wise Box Plot', fontsize = 20, loc='center', fontdict=dict(weight='bold'))
         ax[0].set_xlabel('Year', fontsize = 16, fontdict=dict(weight='bold'))
         ax[0].set_ylabel(col_name, fontsize = 16, fontdict=dict(weight='bold'))
+        #if more than 12 xticks, show only every third label
+        if len(ax[0].get_xticklabels()) > 12:
+            for i, label in enumerate(ax[0].xaxis.get_major_ticks()):
+                if i % 4 != 0:
+                    label.set_visible(False)
 
-        sns.boxplot(x=self.data['month'], y=self.data[col_name], ax=ax[1])
+        sns.boxplot(x=self.data.index.month, y=self.data[col_name], ax=ax[1])
         ax[1].set_title('Month-wise Box Plot', fontsize = 20, loc='center', fontdict=dict(weight='bold'))
         ax[1].set_xlabel('Month', fontsize = 16, fontdict=dict(weight='bold'))
         ax[1].set_ylabel(col_name, fontsize = 16, fontdict=dict(weight='bold'))
@@ -106,13 +127,17 @@ class Data():
         
         # NOTE: could add daily in year, daily in month
 
+        #Settings for plot:
+        color_palette = sns.color_palette("mako", n_colors=60)
 
         #Plotting:
-        ax = sns.lineplot(x=x, y=col_name, data=df, hue=ref_frame_str, errorbar=('ci', False))
+        ax = sns.lineplot(x=x, y=col_name, data=df, hue=ref_frame_str, errorbar=('ci', False), palette=color_palette, linewidth=0.75)
         ax.set_title(f'{title} seasonality plot')
         ax.set_xlabel(xlabel)
         ax.set_ylabel('value')
         ax.set_xticks(ticks=range(len(xticks_labels)), labels=xticks_labels)
+        ax.legend(title=plot_type, loc='upper left', bbox_to_anchor=(1, 1))
+
         #if more than 12 xticks, show only every third label
         if len(ax.get_xticklabels()) > 12:
             for i, label in enumerate(ax.xaxis.get_major_ticks()):
@@ -128,7 +153,6 @@ class Data():
 
     def plot_seasonal_subseries(self, col_name: str):
         #plot seasonal subseries
-        from statsmodels.graphics.tsaplots import month_plot
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 6))
         # fig, ax = plt.subplot(figsize=(16, 6))
         data_temp = self.data[[col_name]].resample("MS").sum() #double [[]] to keep as df
@@ -137,9 +161,10 @@ class Data():
 
     def plot_daily_heatmap(self, col_name: str):
         #plot heatmap for daily values:
-        import dayplot as dp
-        import calplot
 
+        #Avg. per day of year:
+        #avg_per_day_of_year = self.data["count"].groupby([self.data.index.month, self.data.index.day]).mean() #, as_index=False
+        
 
         dp.calendar(
             dates=self.data.index,
@@ -165,7 +190,6 @@ class Data():
         # plt.show()
 
         #new:
-        from statsmodels.graphics.tsaplots import plot_acf
 
         plot_acf(x=self.data[col_name])
         plt.show()
@@ -173,7 +197,6 @@ class Data():
 
 
     def plot_partial_autocorrelation(self, col_name: str):
-        from statsmodels.graphics.tsaplots import plot_pacf
 
         plot_pacf(x=self.data[col_name])
         plt.show()
@@ -187,7 +210,6 @@ class Data():
 
     def decompose_one(self, col_name: str, model: str='additive', period=7):
         #maybe function to target only one column to decompose?
-        from statsmodels.tsa.seasonal import seasonal_decompose
 
         result = seasonal_decompose(self.data[col_name], model=model, period=period)
         print(result.trend)
@@ -203,7 +225,7 @@ class Data():
     def decompose_all(self, model: str='additive', period: int=7):
         #maybe function to decompose multiple/all columns? or just one fct, 
         # where it iterates over models (and i can pass df.columns minus date)?
-        from statsmodels.tsa.seasonal import seasonal_decompose
+
 
         #TODO: add functionality to decompose all columns
         # i think now its the same as decompose one? (see original in 'viz.py')
@@ -221,7 +243,7 @@ class Data():
 
     def multiple_decompose(self, col_name: str, periods: list):
         # col = col to decompose, i.e. y, for example "count"
-        from statsmodels.tsa.seasonal import MSTL #multiple seasonal decompose
+
 
         mstl = MSTL(self.data[col_name], periods=periods)
         res = mstl.fit()

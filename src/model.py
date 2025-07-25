@@ -6,8 +6,11 @@ import statsmodels
 from statsmodels.tsa.arima.model import ARIMA
 #from statsmodels.tsa.statespace.sarimax import SARIMAX
 
-class Model:
 
+
+class Model:
+    #methods for running are in the child classes for the individual models.
+    # here only general methods needed for the models
 
 
     def __init__(self, data: data_model.Data): #TODO: maybe add configuration?
@@ -35,6 +38,77 @@ class Model:
         #Decompositions: (s.u., gehört eig. nciht hierher)
         # self.decomp = None
 
+
+
+    #------------------------------------------------------------------------------------------------
+    # Helper functions
+    #------------------------------------------------------------------------------------------------
+    
+    def rolling_window(self, train_len: int, test_len: int):
+        #split df into train and test set, by rolling window (same length
+        # of history 'rolling' over data): in data 11-10 with train_len=3, test_len=2:
+        # [1, 2, 3][4, 5] 6, 7, 8, 9, 10 
+        #  1 [2, 3, 4][5, 6] 7, 8, 9, 10 
+        #  1, 2 [3, 4, 5][6, 7] 8, 9, 10
+        #  1, 2, 3 [4, 5, 6][7, 8] 9, 10
+        #  1, 2, 3, 4 [5, 6, 7][8, 9] 10
+        #  1, 2, 3, 4, 5 [6, 7, 8][9, 10]
+        start_idx = train_len 
+        end_idx = len(self.df) - test_len + 1 
+
+        for split_idx in range(start_idx, end_idx):
+
+            #use iloc to get a view, not a copy (like you would get with df[n:m])
+            train_set = self.df.iloc[split_idx-train_len : split_idx]
+            test_set = self.df.iloc[split_idx : split_idx+test_len]
+
+            
+            # print(f"\ntrain set ({len(train_set)}):\n{train_set}")
+            # print(f"\ntest_set ({len(test_set)}):\n{test_set}")
+
+            yield train_set, test_set
+
+
+    def expanding_window(split_percent: float, test_len: int):
+        #TODO: move to top of file of respective class file
+        from sklearn.model_selection import TimeSeriesSplit
+
+        #create expanding window for cross validation.
+        # pass percentage for split in data (0-1), as well as pred_size, which is the number
+        # of rows to look ahead.
+
+        #index where to split/start the expanding window
+        start_idx = get_split_index_by_prct(len(df), split_percent)
+        end_idx = len(self.df) - test_len + 1
+
+        res = []
+
+        for split_idx in range(start_idx, end_idx):
+            train_set = self.df.iloc[:split_idx]
+            test_set = self.df.iloc[split_idx:split_idx+test_len]
+
+            # print(f"\nsplit index: {split_idx}")
+            # print(f"train set ({len(train_set)}):\n{train_set}")
+            # print(f"\ntest_set ({len(test_set)}):\n{test_set}\n")
+
+            # yield train_set, test_set
+            res.append([train_set, test_set])
+        return res
+
+    def get_split_index_by_prct(df_len, prct: float=0.77):
+        #returns index of split position
+
+        if prct <= 0 or prct > 1:
+            raise ValueError("must be between 0 and 1, not 0")
+        if df_len <= 2:
+            raise ValueError("df must be longer than 2 rows")
+        
+        l = df_len
+        idx = int(l*prct)
+
+        return idx
+
+
     def split_by_percentage(self, percent=0.33):
         """percent = percent to assign as test data. should be <0.5"""
 
@@ -57,10 +131,6 @@ class Model:
     #     print(self.decomp.seasonal)
     #     print(self.decomp.resid)
     #     print(self.decomp.observed)
-
-    def test_class_implementation(self):
-        print(self.data.head())
-
 
     def make_stationary(self, data):
         #make stationary (remove trend)
@@ -160,7 +230,7 @@ class ModelSarima(Model):
         # col=string for univariate forecasting column/target
         #create model with trainign data + (hyper)parameters
         #params are model parameters
-        series = self.data[["date", col]]
+        series = self.data[col]
         self.model = ARIMA(series, order=(p,d,q))
 
 

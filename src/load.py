@@ -1,6 +1,6 @@
 # Read Data
 import pandas as pd
-from src.config import timer_func
+from src.utils import timer_func
 
 @timer_func
 def load_data(path, sep="\t"):

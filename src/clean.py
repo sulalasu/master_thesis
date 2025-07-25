@@ -7,7 +7,7 @@ from numpy import nan
 from pathlib import Path
 
 from src import config
-from src.config import timer_func
+from src.utils import timer_func
 
 
 
@@ -39,18 +39,11 @@ def clean_data(df,
         # x 3. split 
         print("Reading and cleaning raw data")
 
-        #df = clean_dates(df) #DONE
+        df = clean_dates(df) #DONE
         #set again to datetime, because first time didnt work? (i think because of merging/missing values)
         #df['date'] = pd.to_datetime(df['date'])
 
-        #TODO: remove
-        #Only keep from 2018 on (for test puproses)
-        start_date = pd.to_datetime("2018-01-01")
-        end_date = pd.to_datetime("2024-12-31")
-        df = df[start_date:end_date]
-        # mask = (df.index >= start_date) & (df.index <= end_date)
-        #mask = (df.index >= "2018-01-01") & (df.index <= "2024-12-31")
-        #df = df.loc[mask]
+
 
         df = clean_transfusion_status(df) #DONE
 

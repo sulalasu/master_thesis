@@ -41,29 +41,17 @@ for col in df_raw.columns:
         tmp = np.array(sorted(tmp))
         print(f"{col}:\n{tmp}\n")
 print(df_raw.columns)
-df_raw = clean.clean_dates(df_raw) #TODO: remove here, enable again in clean_data()
+#TODO: move back to clean_data
+# df_raw = clean.clean_dates(df_raw) #TODO: remove here, enable again in clean_data()
 
 
 
 #%%--------------------------------------------------------------------------------
 # CLEANING 
 #----------------------------------------------------------------------------------
-
 #Runs only if no file exists at. If not existing, saves df to new file
 
-#TODO: remove
-#Sample random days (for testing purposes)
-# sampled_values = df_raw.index.to_series().sample(n=500, random_state=42)
-# df_raw2 = df_raw[df_raw.index.isin(sampled_values)]
-#Sample random rows
-#df_raw = df_raw.sample(n=90000, random_state=10) #TODO: remove
-#Subset by date range:
-start_date = pd.to_datetime("201-01-01")
-end_date = pd.to_datetime("2020-12-31")
-df_test = df_test[start_date:end_date]
-#%%
 #unify dates, columns etc. rename stuff
-importlib.reload(clean)
 
 df_clean = clean.clean_data(df_raw)
 # df_clean.sort_index(inplace=True)
@@ -76,7 +64,6 @@ df_clean = clean.clean_data(df_raw)
 
 #TODO: Check what unique vals are present in df
 clean.check_unique_values(df_clean.drop(["EC_ID_I_hash", "EC_ID_O_hash", "PAT_WARD"], axis=1))
-
 
 
 #%%
@@ -92,15 +79,21 @@ for col_name, col in df_clean.items():
 
 
 #%%
-df_pat_ward_daily = df_clean[df_clean['PAT_WARD'] == "901AN331"]
+
+for ward in df_clean["PAT_WARD"].unique():
+    df_pat_ward_daily = df_clean[df_clean['PAT_WARD'] == ward]
+    df_pat_ward_daily.info()
+    df_filtered = df_pat_ward_daily.groupby(df_pat_ward_daily.index.date).count()
+    if df_filtered["PAT_WARD"].max() < 60:
+        continue
+    df_filtered['PAT_WARD'].plot(x='date')
+    plt.title(ward)
+    plt.show()
 #df_pat_ward_daily['date'] = pd.to_datetime(df_pat_ward_daily['date'])
 #df_pat_ward_daily = df_pat_ward_daily.set_index('date')
 
-df_pat_ward_daily.info()
-df_filtered = df_pat_ward_daily.groupby(df_pat_ward_daily.index.date).count()
 #%%
 df_filtered.head()
-df_filtered['EC_BG'].plot(x='date')
 
 
 
@@ -110,15 +103,10 @@ df_filtered['EC_BG'].plot(x='date')
 #%%--------------------------------------------------------------------------------
 # TRANSFORMING/PROCESSING
 #----------------------------------------------------------------------------------
-# remove duplicates/NAs, 
-# maybe imputation, but i think i have vals for everyday, so rather check for outliers?
-# There is univariate (LOCF, NOCB) and multivariate imputation (sklearn: IterativeImputer)
 # make STATIONARY! (if all models need that, otherwise make it a member function)
 # splitting in test/training etc. here or as extra step/model step?
 
-#DONE: load data from csv
-#df_processed = load.load_data(path="data/02_intermediate/intermediate_output.csv")
-importlib.reload(transform)
+
 
 # Proces....
 #add external data (holidays weather (temp, precipitation), covid/influenca cases)
@@ -128,25 +116,23 @@ importlib.reload(transform)
 
 # make daily aggregations for categorical variables
 df_processed = transform.transform_data(df_clean)
+#TODO: save data to csv
 #%%
 
 
-#TODO: save data to csv
 
 #%%--------------------------------------------------------------------------------
 # DATA VIZ (EXPLORATION)
 #----------------------------------------------------------------------------------
 
-#TODO: save to csv
+#TODO: save vizualisations to csv
+importlib.reload(data_model)
 
 print(df_clean.columns)
+df = data_model.Data(data=df_processed)
 #%%
-
-df = data_model.Data(data=df_clean)
-#%%
-df.print_head()
+#df.print_head()
 df.plot_seasonal(plot_type='daily', col_name='count')
-
 
 
 #%%
@@ -162,7 +148,7 @@ df.decompose_one(col_name='count')
 #df.decompose_all("count")
 
 # mulitple decomposition (daily + weekly)
-df.multiple_decompose(col_name="count", periods=[24, 24*7])
+df.multiple_decompose(col_name="count", periods=[7, 365])
 
 
 
@@ -175,11 +161,13 @@ df.plot_partial_autocorrelation(col_name='count')
 
 
 #%%
-df.plot_daily_heatmap(col_name='count')
 
 
 
+df[pd.to_datetime("2024-01-01"):pd.to_datetime("2024-12-31")].plot_daily_heatmap(col_name='count')
 
+
+)
 
 #%%--------------------------------------------------------------------------------
 # MODEL BUILDING

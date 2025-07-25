@@ -4,6 +4,9 @@ from time import time
 ENABLE_TIMING = True #If true, print messages. #TODO: add logging module to do that
 ENABLE_LOGGING = True
 
+#Slice data while developing
+DEV_START_DATE = "2018-01-01"
+DEV_END_DATE = "2024-12-31"
 
 # DATE: Mapping of column names with their respective format
 # DONE: change all date formats to iso without time
@@ -12,14 +15,15 @@ date_format_map = {
     "T_ISO_T" : {"yearfirst" : True}, 
     "T_DE" : {"dayfirst" : True}, 
     "T_US_T" : {"format" : "%m/%d/%y %H:%M"}, #%H for 24h clock, %I for 12h clock
-    "T_DE_S" : {"format" : "%d.%m.%y"}, #y for short year
-    "T_US" : {"format" : "%m-%d-%y"}, 
-    "T_DE_T" : {"format" : "%d.%m.%y %H:%M"},
-    "T_ISO" : {"yearfirst" : True}
+    # "T_DE_S" : {"format" : "%d.%m.%y"}, #y for short year
+    "T_DE_S" : {"format" : "%m-%d-%y"} #in new data (2025-07-16) its mm-dd-yy
+    #"T_US" : {"format" : "%m-%d-%y"}, #in new data (2025-07-16) doesnt exist anymore
+    #"T_DE_T" : {"format" : "%d.%m.%y %H:%M"}, #in new data (2025-07-16) doesnt exist anymore
+    #"T_ISO" : {"yearfirst" : True} #in new data (2025-07-16) doesnt exist anymore
 }
 
 #Columns with info about EC status ('discarded', 'expired' etc.)
-transfusion_cols = ["ToD", "ToD_N", "ToD_O"]
+transfusion_cols = ["ToD", "ToD_N"]# "ToD_O" doesnt exist anymore (2025-07-16 data)
 
 #Mapping of transfusion status raw --> processed
 #See Mail from 14.7.25
@@ -65,14 +69,15 @@ rhesus_factor_map = {
     "KMT Rh n. bestimmb." : "NB",
     "Sonderfall" : "NB",
 
-    "Rh D weak" : "Rh weak",
-    "Rh D var" : "Rh weak",
-    "Rh Du" : "Rh weak"
+    "Rh D weak" : "NB",
+    "Rh D var" : "NB",
+    "Rh Du" : "NB"
 }
 
 #Blood group (EC/PAT) mapping:
 blood_group_map = {
     "A" : "A",
+    "A2" : "A", #Subgroup of A, one occurence
     "0" : "0",
     "0.0" : "0",
     "B" : "B",
@@ -80,7 +85,9 @@ blood_group_map = {
 
     "NB" : "NB",
     #"NBN" : "NBN",
-    "BG nicht bestimmb." : "NB"
+    "BG nicht bestimmb." : "NB",
+    "KMT BG n. bestimmb." : "NB",
+    "BG Unbekannt" : "NB"
 }
 
 
@@ -93,20 +100,3 @@ ec_type_keep = ["EKF", "EKFX"]
 
 
 
-
-#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-# Global functions
-#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-def timer_func(func):
-    #todo: add either own logging func+decorators or put it inside here?
-    def wrap_func(*args, **kwargs):
-        if ENABLE_TIMING:
-            t1 = time()
-            result = func(*args, **kwargs)
-            t2 = time()
-            print(f'Function {func.__name__!r} executed in {(t2-t1):.4f}s')
-            return result
-        else:
-            return func(*args, **kwargs)
-    return wrap_func

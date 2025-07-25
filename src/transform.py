@@ -29,7 +29,7 @@ def transform_data(df,
 
 
         #remove unnecessary cols:
-        cols_to_remove = ["EC_ID_O_hash", "EC_ID_I_hash", "PAT_WARD"] #"Unnamed: 0"
+        cols_to_remove = ["EC_ID_O_hash", "EC_ID_I_hash"]#, "PAT_WARD"] #"Unnamed: 0"
         df = df.drop(columns=cols_to_remove, axis=1)
         #colnames which i want to sum (all except 'date')
         df = df.reset_index()
@@ -37,7 +37,6 @@ def transform_data(df,
         cols_to_sum.remove('date')
         #sum all above cols and split into category columns
         df = aggregate_categorical_cols(df, cols_to_sum)
-
 
         #make wide
         #see aggregate_categorical_cols!
@@ -51,6 +50,12 @@ def transform_data(df,
 
 
         #df = add_weather_data(df)
+
+
+        #Save new file:
+        print(f"Write new file to {new_file_path}")
+        df.to_csv(path_or_buf=new_file_path, sep=",")
+
 
 
     return df
