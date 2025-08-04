@@ -58,208 +58,60 @@ class Model:
     # Helper functions
     #------------------------------------------------------------------------------------------------
     
-    def rolling_window(self, train_len: int, test_len: int, start_date: str=None):
-        #split df into train and test set, by rolling window (same length
-        # of history 'rolling' over data): in data 11-10 with train_len=3, test_len=2:
-        # [1, 2, 3][4, 5] 6, 7, 8, 9, 10 
-        #  1 [2, 3, 4][5, 6] 7, 8, 9, 10 
-        #  1, 2 [3, 4, 5][6, 7] 8, 9, 10
-        #  1, 2, 3 [4, 5, 6][7, 8] 9, 10
-        #  1, 2, 3, 4 [5, 6, 7][8, 9] 10
-        #  1, 2, 3, 4, 5 [6, 7, 8][9, 10]
-        if start_date != None:
-            start_date = pd.to_datetime(start_date)
+    # #Not used anymore
+    # def rolling_window(self, train_len: int, test_len: int, start_date: str=None):
+    #     #split df into train and test set, by rolling window (same length
+    #     # of history 'rolling' over data): in data 11-10 with train_len=3, test_len=2:
+    #     # [1, 2, 3][4, 5] 6, 7, 8, 9, 10 
+    #     #  1 [2, 3, 4][5, 6] 7, 8, 9, 10 
+    #     #  1, 2 [3, 4, 5][6, 7] 8, 9, 10
+    #     #  1, 2, 3 [4, 5, 6][7, 8] 9, 10
+    #     #  1, 2, 3, 4 [5, 6, 7][8, 9] 10
+    #     #  1, 2, 3, 4, 5 [6, 7, 8][9, 10]
+    #     if start_date != None:
+    #         start_date = pd.to_datetime(start_date)
 
-        start_idx = train_len 
-        end_idx = len(self.df) - test_len + 1 
+    #     start_idx = train_len 
+    #     end_idx = len(self.df) - test_len + 1 
 
-        for split_idx in range(start_idx, end_idx):
+    #     for split_idx in range(start_idx, end_idx):
 
-            #use iloc to get a view, not a copy (like you would get with df[n:m])
-            train_set = self.df.iloc[split_idx-train_len : split_idx]
-            test_set = self.df.iloc[split_idx : split_idx+test_len]
+    #         #use iloc to get a view, not a copy (like you would get with df[n:m])
+    #         train_set = self.df.iloc[split_idx-train_len : split_idx]
+    #         test_set = self.df.iloc[split_idx : split_idx+test_len]
 
             
-            # print(f"\ntrain set ({len(train_set)}):\n{train_set}")
-            # print(f"\ntest_set ({len(test_set)}):\n{test_set}")
+    #         # print(f"\ntrain set ({len(train_set)}):\n{train_set}")
+    #         # print(f"\ntest_set ({len(test_set)}):\n{test_set}")
 
-            yield train_set, test_set
+    #         yield train_set, test_set
 
+    # #Not used anymore
+    # def expanding_window(self, train_percent: float, test_len: int):
+    #     #TODO: move to top of file of respective class file
+    #     from sklearn.model_selection import TimeSeriesSplit
 
-    def expanding_window(self, train_percent: float, test_len: int):
-        #TODO: move to top of file of respective class file
-        from sklearn.model_selection import TimeSeriesSplit
+    #     #create expanding window for cross validation.
+    #     # pass percentage for split in data (0-1), which is the percentage of initially kept data for training, 
+    #     # as well as test_len, which is the number of rows to look ahead.
 
-        #create expanding window for cross validation.
-        # pass percentage for split in data (0-1), which is the percentage of initially kept data for training, 
-        # as well as test_len, which is the number of rows to look ahead.
+    #     #index where to split/start the expanding window
+    #     start_idx = self.get_split_index_by_prct(len(df), train_percent)
+    #     end_idx = len(self.df) - test_len + 1
 
-        #index where to split/start the expanding window
-        start_idx = self.get_split_index_by_prct(len(df), train_percent)
-        end_idx = len(self.df) - test_len + 1
+    #     res = []
 
-        res = []
+    #     for split_idx in range(start_idx, end_idx):
+    #         train_set = self.df.iloc[:split_idx]
+    #         test_set = self.df.iloc[split_idx:split_idx+test_len]
 
-        for split_idx in range(start_idx, end_idx):
-            train_set = self.df.iloc[:split_idx]
-            test_set = self.df.iloc[split_idx:split_idx+test_len]
+    #         # print(f"\nsplit index: {split_idx}")
+    #         # print(f"train set ({len(train_set)}):\n{train_set}")
+    #         # print(f"\ntest_set ({len(test_set)}):\n{test_set}\n")
 
-            # print(f"\nsplit index: {split_idx}")
-            # print(f"train set ({len(train_set)}):\n{train_set}")
-            # print(f"\ntest_set ({len(test_set)}):\n{test_set}\n")
-
-            # yield train_set, test_set
-            res.append([train_set, test_set])
-        return res
-
-    def get_split_index_by_prct(self, start_date, prct: float=0.77):
-        """
-        returns datetime index of split position.
-        """
-        df_len = len(self.data[start_date:])
-        if prct <= 0 or prct > 1:
-            raise ValueError("must be between 0 and 1, not 0")
-        if df_len <= 2:
-            raise ValueError("df must be longer than 2 rows")
-        
-        idx = int(len(self.data[start_date:]) * prct)
-        split_date = self.data[start_date:].index[idx]
-
-        print(f"Split index/date with start_date ({start_date}: \n {split_date})")
-
-        return split_date
-
-
-    #NOTE: not in use currently
-    def split_by_percentage(self, percent: float=0.33, start_date=None):
-        """
-        percent = percent to assign as train data. 
-        """
-        
-        if percent >= 1 or percent <= 0:
-            raise Exception(f"Training/test data ratio: test size: {percent}) must be float smaller than 1 (should be >0.5)")
-
-        self.split_index = int(len(self.data)*percent)
-        self.train_data = self.data.iloc[: self.split_index]
-        self.test_data = self.data.iloc[self.split_index:]
-
-
-
-
-
-
-    # Gehört eigentlich nichth zum model, passiert ja vorher:
-    # def decompose(self, ):
-    #     self.decomp = seasonal_decompose(series, model='additive')
-    #     print(self.decomp.trend)
-    #     print(self.decomp.seasonal)
-    #     print(self.decomp.resid)
-    #     print(self.decomp.observed)
-
-    def make_stationary(self, data):
-        #make stationary (remove trend)
-        #maybe move to corresping model that needs it?
-        # I think actually has to happen before, in data processing, but
-        # if splitting also happens here, than i could do it here, before the split?
-        # but would be needed before for autocorrelatio plots (data exploration!)
-        # --> move stationary/detrend + splitting as functions in PROCESSING.
-        # then only pass train and test data set to Model.
-        # df = xxx
-        # return df
-        pass
-
-    # def model_fit(self):
-    #     # fit (train) model on dataset
-    #     pass
-    
-    # def predict(self, time):
-    #     # generate forecast for x time
-    #     # see child class
-    #     pass
-
-    def validate_expanding_window(self, data, w):
-        """
-        w = window size in days
-        """
-        #split data
-
-
-        #run model against test data set wtih expanding window
-        pass
-
-    def validate_rolling_window(self, data, w, sliding=False):
-        """
-        w : window size in days
-        sliding : If True window slides by one day, if false window slides by window size. 
-        """
-        if self.test_data == None or self.train_data == None:
-            raise ValueError("test_data and train_data cant be None. Use split_by_percentage method,"
-            "to assign data to test and train set.")
-
-        #Habe das hier implementiert, damit man nicht den split auch noch 
-        # als argument beim fct call angeben muss. Wenn ich das hier einbaue, müsste
-        # ich noch return zu split_by_percentage machen
-        train = self.train_data
-        test = self.test_data
-
-        #TODO: this has to be done using for t in range(), to
-        # account for step size of window (if sliding=True, i want
-        # to jump 3 days, if w=3)
-        for t in test[:len(test) - w + 1]:
-            print(test, len(test) - w + 1)
-
-        
-
-        #run model against test data set wtih rollling window
-        pass
-
-
-    def evaluate_model(self):
-        #run evaluations, to get values like MAE, MAPE etc.
-        pass
-
-    def run_MAE():
-        pass
-    
-    def run_MAPE():
-        pass
-
-    def run_MSRE():
-        pass
-
-
-    
-
-    #UNCLEAR: add extra plotting here or just use the functions? 
-
-
-    
-
-
-
-#--------------------------------------------------------------------
-# Individual Models:
-#--------------------------------------------------------------------
-    
-
-# SARIMA
-class ModelSarima(Model):
-
-
-    def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
-        super().__init__(data)
-        self.p = None
-        self.q = None
-        self.d = None
-
-    #------------------------------------------------------------------------------------------------
-    # Setters
-    #------------------------------------------------------------------------------------------------
-    
-    def set_parameters(self, p: int=1, d: int=1, q: int=1):
-        self.p = p
-        self.d = d
-        self.d = q
+    #         # yield train_set, test_set
+    #         res.append([train_set, test_set])
+    #     return res
 
     def set_validation_expanding_window(self, train_percent: float, test_len: int, start_date: str=None):
         """
@@ -449,6 +301,157 @@ class ModelSarima(Model):
     def get_validation_type(self):
         print("Validation type:", self.validation_type["type"])
 
+
+
+    def get_split_index_by_prct(self, start_date, prct: float=0.77):
+        """
+        returns datetime index of split position.
+        """
+        df_len = len(self.data[start_date:])
+        if prct <= 0 or prct > 1:
+            raise ValueError("must be between 0 and 1, not 0")
+        if df_len <= 2:
+            raise ValueError("df must be longer than 2 rows")
+        
+        idx = int(len(self.data[start_date:]) * prct)
+        split_date = self.data[start_date:].index[idx]
+
+        print(f"Split index/date with start_date ({start_date}: \n {split_date})")
+
+        return split_date
+
+
+    #NOTE: not in use currently
+    def split_by_percentage(self, percent: float=0.33, start_date=None):
+        """
+        percent = percent to assign as train data. 
+        """
+        
+        if percent >= 1 or percent <= 0:
+            raise Exception(f"Training/test data ratio: test size: {percent}) must be float smaller than 1 (should be >0.5)")
+
+        self.split_index = int(len(self.data)*percent)
+        self.train_data = self.data.iloc[: self.split_index]
+        self.test_data = self.data.iloc[self.split_index:]
+
+
+
+
+
+
+    # Gehört eigentlich nichth zum model, passiert ja vorher:
+    # def decompose(self, ):
+    #     self.decomp = seasonal_decompose(series, model='additive')
+    #     print(self.decomp.trend)
+    #     print(self.decomp.seasonal)
+    #     print(self.decomp.resid)
+    #     print(self.decomp.observed)
+
+    def make_stationary(self, data):
+        #make stationary (remove trend)
+        #maybe move to corresping model that needs it?
+        # I think actually has to happen before, in data processing, but
+        # if splitting also happens here, than i could do it here, before the split?
+        # but would be needed before for autocorrelatio plots (data exploration!)
+        # --> move stationary/detrend + splitting as functions in PROCESSING.
+        # then only pass train and test data set to Model.
+        # df = xxx
+        # return df
+        pass
+
+    # def model_fit(self):
+    #     # fit (train) model on dataset
+    #     pass
+    
+    # def predict(self, time):
+    #     # generate forecast for x time
+    #     # see child class
+    #     pass
+
+    def validate_expanding_window(self, data, w):
+        """
+        w = window size in days
+        """
+        #split data
+
+
+        #run model against test data set wtih expanding window
+        pass
+
+    def validate_rolling_window(self, data, w, sliding=False):
+        """
+        w : window size in days
+        sliding : If True window slides by one day, if false window slides by window size. 
+        """
+        if self.test_data == None or self.train_data == None:
+            raise ValueError("test_data and train_data cant be None. Use split_by_percentage method,"
+            "to assign data to test and train set.")
+
+        #Habe das hier implementiert, damit man nicht den split auch noch 
+        # als argument beim fct call angeben muss. Wenn ich das hier einbaue, müsste
+        # ich noch return zu split_by_percentage machen
+        train = self.train_data
+        test = self.test_data
+
+        #TODO: this has to be done using for t in range(), to
+        # account for step size of window (if sliding=True, i want
+        # to jump 3 days, if w=3)
+        for t in test[:len(test) - w + 1]:
+            print(test, len(test) - w + 1)
+
+        
+
+        #run model against test data set wtih rollling window
+        pass
+
+
+    def evaluate_model(self):
+        #run evaluations, to get values like MAE, MAPE etc.
+        pass
+
+    def run_MAE():
+        pass
+    
+    def run_MAPE():
+        pass
+
+    def run_MSRE():
+        pass
+
+
+    
+
+    #UNCLEAR: add extra plotting here or just use the functions? 
+
+
+    
+
+
+
+#--------------------------------------------------------------------
+# Individual Models:
+#--------------------------------------------------------------------
+    
+
+# SARIMA
+class ModelSarima(Model):
+
+
+    def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
+        super().__init__(data)
+        self.p = None
+        self.q = None
+        self.d = None
+
+    #------------------------------------------------------------------------------------------------
+    # Setters
+    #------------------------------------------------------------------------------------------------
+    
+    def set_parameters(self, p: int=1, d: int=1, q: int=1):
+        self.p = p
+        self.d = d
+        self.d = q
+
     def make_model(self, col: str):
         """
         create model with trainign data + (hyper)parameters
@@ -520,6 +523,7 @@ class ModelSarima(Model):
                 
                 self.stepwise_forecasts[str(step)] = step_forecasts
         
+
 
 
 
