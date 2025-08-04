@@ -29,13 +29,15 @@ class Model:
         #Config and date sets for splitting data (train/test)
         self.validation_config = {}
         self.validation_sets = None
-
+        #save forecasts as 1-day fc, 2-day-fc, for plotting:
+        # when i set test_len as 7 days, i want to save all 1-day look aheads, all for the 2nd day etc
+        self.stepwise_forecasts = {}
 
         #Model(s)
-        self.model = None
-        self.model_fit = None
-        self.prediction = None
-        self.model_runs = list() #List of past runs
+        self.models = []
+        self.model_fits = []
+        self.predictions = []
+        #self.model_runs = list() #List of past runs
         #TODO: save model runs as well as their state (parameters etc.)
         # so they can be accessed later. save to file.
 
@@ -170,10 +172,10 @@ class Model:
     #     # fit (train) model on dataset
     #     pass
     
-    def predict(self, time):
-        # generate forecast for x time
-        # see child class
-        pass
+    # def predict(self, time):
+    #     # generate forecast for x time
+    #     # see child class
+    #     pass
 
     def validate_expanding_window(self, data, w):
         """
@@ -206,7 +208,7 @@ class Model:
         for t in test[:len(test) - w + 1]:
             print(test, len(test) - w + 1)
 
-
+        
 
         #run model against test data set wtih rollling window
         pass
@@ -456,29 +458,70 @@ class ModelSarima(Model):
         col : string 
             column (target) to use for for univariate forecasting 
         """
-
+        #Important!
+        self.models = []
+        
         #TODO: set up split AND validation
         # i think for validation, best option to have a list of lists with train_start, train_end, test_start, test_end
         # days (datetime), which i can cycle here (make_model, fit, print_fit_summary, predict), which is just
         # inplace filtering of df, so i dont have to store multiple dfs!
         series = self.data[col]
         #TODO: !use SARIMAX instead of ARIMA!
-        self.model = ARIMA(series, order=(1, 1, 1))#self.p, self.d, self.q))
+        
+        for train_set in self.validation_sets:
+            self.models.append(ARIMA(series[train_set[0] : train_set[1]], order=(1, 1, 1)))#self.p, self.d, self.q))
 
 
     def fit(self):
-        self.model_fit = self.model.fit()
+        #Important!
+        self.model_fits = []
+
+        for model in self.models:
+            self.model_fits.append(model.fit())
 
 
-    def print_fit_summary(self):
-        print(self.model_fit.summary())
+    def print_fit_summary(self, last_only=True):
+        if last_only:
+            print(self.model_fits[-1].summary())
+        else:
+            for fit in self.model_fits:
+                print(fit.summary())
 
     def predict(self, days=None):
         # generate forecast for x time
         # (see base class)
+
+        #Important!
+        self.predictions = []
+
         if days == None:
             days = self.validation_config["test_len"]
-        pass
+
+        for fit in self.model_fits:
+            self.predictions.append(fit.get_forecast(steps=days))
+
+    def add_stepwise_forecasts(self):
+        """
+        Add stepwise_forecasts: dictionary containing number of keys in the length of test_len, with values
+        as pandas Series of forecasted values for respective days to look ahead. E.g. if test_len (in rolling/expanding window) 
+        is 7 days, keys "1" to "7" are added, containing the predicted value for predictions as far into the future
+        as the key.
+        Used for plotting and comparing, how well the prediction works into the future.
+
+        Returns nothing, sets self.stepwise_forecasts
+        """
+
+        if self.validation_config["test_len"]:
+            for step in range(1, self.validation_config["test_len"] + 1):
+                step_forecasts = pd.Series()
+                for pred in self.predictions:
+                    step_forecasts = pd.concat([step_forecasts, pred.predicted_mean.iloc[[step-1]]])
+                step_forecasts.sort_index(inplace=True)
+                
+                self.stepwise_forecasts[str(step)] = step_forecasts
+        
+
+
 
 
 # LSTM
