@@ -244,38 +244,51 @@ plt.show()
 importlib.reload(model)
 
 arima = model.ModelSarima(df)
-arima.set_parameters(1,1,1)
 
 # Test runs (it works as expected)
-arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
+# arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-# arima.set_validation_rolling_window(train_percent=0.33, test_len=7, start_date="2020-01-01")
+arima.set_validation_rolling_window(train_percent=0.96, test_len=7, start_date="2022-01-01")
 
 
-arima.make_model(col="count")#, p=1, d=1, q=1)
+arima.set_parameters(1,2,1)
+arima.make_model(col="count")
 arima.fit()
 arima.print_fit_summary()
 arima.predict()
 arima.add_stepwise_forecasts()
-last_train_set = arima.data[arima.validation_sets[-1][0] : arima.validation_sets[-1][1]]["count"]
-last_test_set = arima.data[arima.validation_sets[-1][2] : arima.validation_sets[-1][3]]["count"]
-test_forecast_series = pd.Series(arima.predictions[-1].predicted_mean)
-plt.figure(figsize=(14,7))
-plt.plot(last_train_set, label="training_data")
-plt.plot(last_test_set, label="test_data")
-plt.plot(test_forecast_series, label="forecast")
-plt.show()
+arima.plot_stepwise()
+# last_train_set = arima.data[arima.validation_sets[-1][0] : arima.validation_sets[-1][1]]["count"]
+# last_test_set = arima.data[arima.validation_sets[-1][2] : arima.validation_sets[-1][3]]["count"]
+# test_forecast_series = pd.Series(arima.predictions[-1].predicted_mean)
+# plt.figure(figsize=(14,7))
+# plt.plot(last_train_set, label="training_data")
+# plt.plot(last_test_set, label="test_data")
+# plt.plot(test_forecast_series, label="forecast")
+# plt.show()
 
+#%%
 test_dict = {}
+test_df = pd.DataFrame()
 if arima.validation_config["test_len"]:
+    #Add 'step' (day x) ahead
     for step in range(1, arima.validation_config["test_len"] + 1):
         print(step)
         step_forecasts = pd.Series()
+
+        # Add values of each prediction to 'step' (row wise)
         for pred in arima.predictions:
             step_forecasts = pd.concat([step_forecasts, pred.predicted_mean.iloc[[step-1]]])
+        
         print(step_forecasts)
         step_forecasts.sort_index(inplace=True)
-        arima.stepwise_forecasts[f"Days ahead: {str(step)}"] = step_forecasts
+        if step == 1:
+            test_df = step_forecasts.to_frame()
+        else:
+            test_df = pd.concat([test_df, step_forecasts], axis=1)
+        
+        #Rename last col to string of days to look ahead:
+        test_df.columns = [*test_df.columns[:-1], f"Days ahead: {step}"]
 
 #%% 
 arima.df.head()

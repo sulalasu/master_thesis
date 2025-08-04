@@ -1,6 +1,9 @@
 #TODO: is it necessary to load the modules here?
 from src import data_model
 import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.pyplot import cm #color palette
 from sklearn.model_selection import train_test_split
 import statsmodels
 from statsmodels.tsa.arima.model import ARIMA
@@ -16,9 +19,6 @@ class Model:
     def __init__(self, data: data_model.Data): #TODO: maybe add configuration?
         # TODO: change parameter of model to be of 'Data' type 
         self.data = data
-        # self.validation_type = None #either "rolling_window", "expanding_window", "single" if i just split/train/test once
-        self.validation_config = {}
-        self.validation_sets = []
 
         #Train/Test sets:
         self.split_index = None #Index at split point
@@ -31,7 +31,7 @@ class Model:
         self.validation_sets = None
         #save forecasts as 1-day fc, 2-day-fc, for plotting:
         # when i set test_len as 7 days, i want to save all 1-day look aheads, all for the 2nd day etc
-        self.stepwise_forecasts = {}
+        self.stepwise_forecasts = pd.DataFrame()
 
         #Model(s)
         self.models = []
@@ -112,6 +112,33 @@ class Model:
     #         # yield train_set, test_set
     #         res.append([train_set, test_set])
     #     return res
+
+    # # Not used anymore:
+    # def validate_rolling_window(self, data, w, sliding=False):
+    #     """
+    #     w : window size in days
+    #     sliding : If True window slides by one day, if false window slides by window size. 
+    #     """
+    #     if self.test_data == None or self.train_data == None:
+    #         raise ValueError("test_data and train_data cant be None. Use split_by_percentage method,"
+    #         "to assign data to test and train set.")
+
+    #     #Habe das hier implementiert, damit man nicht den split auch noch 
+    #     # als argument beim fct call angeben muss. Wenn ich das hier einbaue, müsste
+    #     # ich noch return zu split_by_percentage machen
+    #     train = self.train_data
+    #     test = self.test_data
+
+    #     #TODO: this has to be done using for t in range(), to
+    #     # account for step size of window (if sliding=True, i want
+    #     # to jump 3 days, if w=3)
+    #     for t in test[:len(test) - w + 1]:
+    #         print(test, len(test) - w + 1)
+
+        
+
+    #     #run model against test data set wtih rollling window
+    #     pass
 
     def set_validation_expanding_window(self, train_percent: float, test_len: int, start_date: str=None):
         """
@@ -297,6 +324,39 @@ class Model:
 
 
 
+    def add_stepwise_forecasts(self):
+        """
+        Add stepwise_forecasts: dictionary containing number of keys in the length of test_len, 
+        with values as pandas Series of forecasted values for respective days to look ahead. 
+        E.g. if test_len (in rolling/expanding window) 
+        is 7 days, keys "1" to "7" are added, containing the predicted value for predictions 
+        as far into the future as the key.
+        Used for plotting and comparing, how well the prediction works into the future.
+
+        Returns nothing, sets self.stepwise_forecasts as dataframe with days ahead as 
+        columns ("Days ahead: [val]") and prediction_mean as value/columns. Datetime index
+        """
+
+        #not run if single split validation (has no test_len):
+        if self.validation_config["test_len"]:
+            #Add 'step' (day x) ahead
+            for step in range(1, self.validation_config["test_len"] + 1):
+                step_forecasts = pd.Series()
+                for pred in self.predictions:
+                    step_forecasts = pd.concat([step_forecasts, pred.predicted_mean.iloc[[step-1]]])
+                
+                step_forecasts.sort_index(inplace=True)
+                if step == 1:
+                    self.stepwise_forecasts = step_forecasts.to_frame()
+                else:
+                    self.stepwise_forecasts = pd.concat([self.stepwise_forecasts, step_forecasts], axis=1)
+        
+                #Rename last col to string of days to look ahead:
+                self.stepwise_forecasts.columns = [*self.stepwise_forecasts.columns[:-1], f"Days ahead: {step}"]
+                
+
+
+
 
     def get_validation_type(self):
         print("Validation type:", self.validation_type["type"])
@@ -335,6 +395,24 @@ class Model:
         self.test_data = self.data.iloc[self.split_index:]
 
 
+    def plot_stepwise(self):
+        """Plot the stepwise predictions, i.e. plot e.g. one-day-ahead prediction against test set, two-day-ahead, etc.
+        """
+        plot_start = self.stepwise_forecasts.index.min() - pd.DateOffset(60) #first element of first key
+        plot_end = self.stepwise_forecasts.index.max()#self.stepwise_forecasts.keys()[-1][-1] #last element of last key
+
+
+        colors = iter(cm.rainbow(np.linspace(0.4, 1, len(self.stepwise_forecasts.columns))))
+
+        #original_data = 
+        plt.figure(figsize=(14,7))
+
+        plt.plot(self.data[plot_start:plot_end]["count"], label="original data")
+        for col in self.stepwise_forecasts.columns:
+            plt.plot(self.stepwise_forecasts[col], label=col, color=next(colors))
+        plt.legend()
+        plt.show()
+
 
 
 
@@ -359,14 +437,6 @@ class Model:
         # return df
         pass
 
-    # def model_fit(self):
-    #     # fit (train) model on dataset
-    #     pass
-    
-    # def predict(self, time):
-    #     # generate forecast for x time
-    #     # see child class
-    #     pass
 
     def validate_expanding_window(self, data, w):
         """
@@ -378,31 +448,7 @@ class Model:
         #run model against test data set wtih expanding window
         pass
 
-    def validate_rolling_window(self, data, w, sliding=False):
-        """
-        w : window size in days
-        sliding : If True window slides by one day, if false window slides by window size. 
-        """
-        if self.test_data == None or self.train_data == None:
-            raise ValueError("test_data and train_data cant be None. Use split_by_percentage method,"
-            "to assign data to test and train set.")
 
-        #Habe das hier implementiert, damit man nicht den split auch noch 
-        # als argument beim fct call angeben muss. Wenn ich das hier einbaue, müsste
-        # ich noch return zu split_by_percentage machen
-        train = self.train_data
-        test = self.test_data
-
-        #TODO: this has to be done using for t in range(), to
-        # account for step size of window (if sliding=True, i want
-        # to jump 3 days, if w=3)
-        for t in test[:len(test) - w + 1]:
-            print(test, len(test) - w + 1)
-
-        
-
-        #run model against test data set wtih rollling window
-        pass
 
 
     def evaluate_model(self):
@@ -502,27 +548,6 @@ class ModelSarima(Model):
 
         for fit in self.model_fits:
             self.predictions.append(fit.get_forecast(steps=days))
-
-    def add_stepwise_forecasts(self):
-        """
-        Add stepwise_forecasts: dictionary containing number of keys in the length of test_len, with values
-        as pandas Series of forecasted values for respective days to look ahead. E.g. if test_len (in rolling/expanding window) 
-        is 7 days, keys "1" to "7" are added, containing the predicted value for predictions as far into the future
-        as the key.
-        Used for plotting and comparing, how well the prediction works into the future.
-
-        Returns nothing, sets self.stepwise_forecasts
-        """
-
-        if self.validation_config["test_len"]:
-            for step in range(1, self.validation_config["test_len"] + 1):
-                step_forecasts = pd.Series()
-                for pred in self.predictions:
-                    step_forecasts = pd.concat([step_forecasts, pred.predicted_mean.iloc[[step-1]]])
-                step_forecasts.sort_index(inplace=True)
-                
-                self.stepwise_forecasts[str(step)] = step_forecasts
-        
 
 
 
