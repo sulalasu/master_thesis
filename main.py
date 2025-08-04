@@ -25,7 +25,7 @@ print(clean.__file__)
 
 
 
-#%%--------------------------------------------------------------------------------
+##%%--------------------------------------------------------------------------------
 # INPUT
 #----------------------------------------------------------------------------------
 
@@ -46,7 +46,7 @@ print(df_raw.columns)
 
 
 
-#%%--------------------------------------------------------------------------------
+##%%--------------------------------------------------------------------------------
 # CLEANING 
 #----------------------------------------------------------------------------------
 #Runs only if no file exists at. If not existing, saves df to new file
@@ -66,7 +66,7 @@ df_clean = clean.clean_data(df_raw)
 clean.check_unique_values(df_clean.drop(["EC_ID_I_hash", "EC_ID_O_hash", "PAT_WARD"], axis=1))
 
 
-#%%
+##%%
 # Plot frequency counts for unique values in every column
 #TODO: move into viz.py
 for col_name, col in df_clean.items():
@@ -78,7 +78,7 @@ for col_name, col in df_clean.items():
 
 
 
-#%%
+##%%
 
 for ward in df_clean["PAT_WARD"].unique():
     df_pat_ward_daily = df_clean[df_clean['PAT_WARD'] == ward]
@@ -92,7 +92,7 @@ for ward in df_clean["PAT_WARD"].unique():
 #df_pat_ward_daily['date'] = pd.to_datetime(df_pat_ward_daily['date'])
 #df_pat_ward_daily = df_pat_ward_daily.set_index('date')
 
-#%%
+##%%
 df_filtered.head()
 
 
@@ -100,7 +100,7 @@ df_filtered.head()
 
 
 
-#%%--------------------------------------------------------------------------------
+##%%--------------------------------------------------------------------------------
 # TRANSFORMING/PROCESSING
 #----------------------------------------------------------------------------------
 # make STATIONARY! (if all models need that, otherwise make it a member function)
@@ -117,11 +117,11 @@ df_filtered.head()
 # make daily aggregations for categorical variables
 df_processed = transform.transform_data(df_clean)
 #TODO: save data to csv
-#%%
 
 
 
-#%%--------------------------------------------------------------------------------
+
+##%%--------------------------------------------------------------------------------
 # DATA VIZ (EXPLORATION)
 #----------------------------------------------------------------------------------
 
@@ -130,19 +130,19 @@ importlib.reload(data_model)
 
 print(df_clean.columns)
 df = data_model.Data(data=df_processed)
-#%%
+##%%
 #df.print_head()
 df.plot_seasonal(plot_type='daily', col_name='count')
 
 
-#%%
+##%%
 #Boxplots
 df.plot_boxplots(col_name='count')
 df.plot_seasonal_subseries(col_name='count') #NOTE: i think it works, but not enough dummy data.
 #TODO: check if seasonal subseries plot works with multi-year data
 
 
-#%%
+##%%
 #Decompose
 df.decompose_one(col_name='count')
 #df.decompose_all("count")
@@ -152,22 +152,42 @@ df.multiple_decompose(col_name="count", periods=[7, 365])
 
 
 
-
-
-#%%
+##%%
 #Time series plots (acf, pacf etc)
 df.plot_autocorrelation(col_name='count')
 df.plot_partial_autocorrelation(col_name='count')
 
 
-#%%
+##%%
 
 
 
 df[pd.to_datetime("2024-01-01"):pd.to_datetime("2024-12-31")].plot_daily_heatmap(col_name='count')
 
 
-)
+#%% Visualize counts for all plots (as of now only for those starting with 901AN) on top of each other, so that
+# its visible, where naming of one ward starts/ends 
+wards = df_clean["PAT_WARD"].unique()
+fig, ax = plt.subplots(44,1, figsize=(6, 24))
+fig.set_dpi(300)
+fig.set_linewidth(5)
+sel_wards = []
+i = 0
+for ward in wards:
+    if str(ward).startswith("901AN"):
+        sel_wards.append(ward)
+        ax[i].plot(df[f"PAT_WARD_{ward}"], label=ward, linewidth=0.15)
+        #ax[i].legend(loc="upper right")
+        ax[i].set_yticklabels([])
+        i = i+1
+        
+print(len(sel_wards))
+print(sel_wards)
+plt.show()
+
+
+
+
 
 #%%--------------------------------------------------------------------------------
 # MODEL BUILDING
@@ -224,10 +244,20 @@ df[pd.to_datetime("2024-01-01"):pd.to_datetime("2024-12-31")].plot_daily_heatmap
 importlib.reload(model)
 
 arima = model.ModelSarima(df)
-arima.make_model(col="count", p=1, d=1, q=1)
+arima.set_parameters(1,1,1)
+
+# Test runs (it works as expected)
+arima.set_validation_expanding_window(train_percent=0.98, test_len=7)
+arima.set_validation_single_split(train_percent=0.75)
+arima.set_validation_rolling_window(train_percent=0.33, test_len=7, start_date="2020-01-01")
+
+
+arima.make_model(col="count")#, p=1, d=1, q=1)
 arima.fit()
 arima.print_fit_summary()
 arima.predict()
+
+
 
 #%% 
 arima.df.head()

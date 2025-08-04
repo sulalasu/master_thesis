@@ -18,6 +18,7 @@ class Model:
         self.data = data
         # self.validation_type = None #either "rolling_window", "expanding_window", "single" if i just split/train/test once
         self.validation_config = {}
+        self.validation_sets = []
 
         #Train/Test sets:
         self.split_index = None #Index at split point
@@ -25,6 +26,9 @@ class Model:
         self.test_data = None
         self.train_test_data = None #list of tuples containg train/test df index pairs
 
+        #Config and date sets for splitting data (train/test)
+        self.validation_config = {}
+        self.validation_sets = None
 
 
         #Model(s)
@@ -80,7 +84,7 @@ class Model:
             yield train_set, test_set
 
 
-    def expanding_window(train_percent: float, test_len: int):
+    def expanding_window(self, train_percent: float, test_len: int):
         #TODO: move to top of file of respective class file
         from sklearn.model_selection import TimeSeriesSplit
 
@@ -89,7 +93,7 @@ class Model:
         # as well as test_len, which is the number of rows to look ahead.
 
         #index where to split/start the expanding window
-        start_idx = get_split_index_by_prct(len(df), train_percent)
+        start_idx = self.get_split_index_by_prct(len(df), train_percent)
         end_idx = len(self.df) - test_len + 1
 
         res = []
@@ -106,20 +110,23 @@ class Model:
             res.append([train_set, test_set])
         return res
 
-    def get_split_index_by_prct(df, prct: float=0.77):
+    def get_split_index_by_prct(self, start_date, prct: float=0.77):
         """
-        returns index of split position.
+        returns datetime index of split position.
         """
-        df_len = len(df)
+        df_len = len(self.data[start_date:])
         if prct <= 0 or prct > 1:
             raise ValueError("must be between 0 and 1, not 0")
         if df_len <= 2:
             raise ValueError("df must be longer than 2 rows")
         
-        l = df_len
-        idx = int(l*prct)
+        idx = int(len(self.data[start_date:]) * prct)
+        split_date = self.data[start_date:].index[idx]
 
-        return idx
+        print(f"Split index/date with start_date ({start_date}: \n {split_date})")
+
+        return split_date
+
 
     #NOTE: not in use currently
     def split_by_percentage(self, percent: float=0.33, start_date=None):
@@ -242,7 +249,6 @@ class ModelSarima(Model):
         self.p = None
         self.q = None
         self.d = None
-        self.validation_config = {}
 
     #------------------------------------------------------------------------------------------------
     # Setters
@@ -255,10 +261,11 @@ class ModelSarima(Model):
 
     def set_validation_expanding_window(self, train_percent: float, test_len: int, start_date: str=None):
         """
-        Set parameters of validation_config variable (doesnt RUN validation).
+        Set parameters of validation_config variable (doesnt RUN validation) and create a 
+        set of indices (list of tuples) for train/test split by calling make_validation_set().
         There is only one config variable, so using setter again or for another method (rolling window)
         overwrites this setting!
-        
+
         Expanding window validation means, that an initial train set is expanded, 
         by x days each iteration (here x = 1 day).
 
@@ -277,10 +284,14 @@ class ModelSarima(Model):
         :rtype: None
         """
         
-        if start_date == None:
+        if not start_date:
             start_date = self.data.index.min()
         else:
             start_date = pd.to_datetime(start_date)
+
+        print(start_date)
+
+        train_len = len(self.data)
 
         self.validation_config = {
             "type" : "expanding window",
@@ -289,9 +300,14 @@ class ModelSarima(Model):
             "start_date" : start_date
         }
 
-    def set_validation_rolling_window(self, train_len: float, test_len: int, start_date: str=None):
+        self.make_validation_set()
+
+
+
+    def set_validation_rolling_window(self, train_percent: float, test_len: int, start_date: str=None):
         """
-        Set parameters of validation_config variable (doesnt RUN validation)-
+        Set parameters of validation_config variable (doesnt RUN validation) and create a 
+        set of indices (list of tuples) for train/test split by calling make_validation_set().
         There is only one config variable, so using setter again or for another method (expanding window)
         overwrites this setting!
 
@@ -309,21 +325,26 @@ class ModelSarima(Model):
             Optional str in date format YYYY-MM-DD, to set 
             start date of data set. Default None.
         """
-        if start_date == None:
+        if not start_date:
             start_date = self.data.index.min()
         else:
             start_date = pd.to_datetime(start_date)
 
         self.validation_config = {
-            "type" : "expanding window",
-            "train_len" : train_len,
+            "type" : "rolling window",
+            "train_percent" : train_percent,
             "test_len" : test_len,
             "start_date" : start_date
         }
 
+        self.make_validation_set()
+
+
+
     def set_validation_single_split(self, train_percent: float, start_date: str=None):
         """
-        Set parameters of validation_config variable (doesnt RUN validation).
+        Set parameters of validation_config variable (doesnt RUN validation) and create a 
+        set of indices (list of tuples) for train/test split by calling make_validation_set().
         There is only one config variable, so using setter again or for another method (rolling window)
         overwrites this setting!
 
@@ -337,20 +358,89 @@ class ModelSarima(Model):
         start_data : str
             Optional str in date format YYYY-MM-DD, to set start date of data set. Default None.
         """
-        if start_date == None:
+        if not start_date:
             start_date = self.data.index.min()
         else:
             start_date = pd.to_datetime(start_date)
 
         self.validation_config = {
-            "type" : "expanding window",
+            "type" : "single split",
             "train_percent" : train_percent,
             "start_date" : start_date
         }
 
-        train_test_split()
+        self.make_validation_set()
 
+
+
+    def make_validation_set(self, steps: int=1):
+        """
+        Make a list of tuples that contain (train_start, train_end, test_start, test_end), to use for validation.
+
+        Args:
+            validation_config (dict): member variable containing configs for which kind of validation, start date and length (percent) of train set
+            steps (int, optional): Days to step ahead in each iteration. Defaults to 1.
+
+        Returns nothing. Sets self.validation_sets as a list of tuples (in case of single split a single tuple)
+        """
+        #validation_config = self.validation_config
+
+        # #calculate number of iterations/steps
+        # train_len = train_len + validation_config["test_len"]
+        # len_data = end_date - train_start #No. of days it data from start_date to the end
+        # num_of_iterations = len_data - len_train_test + 1 #number of steps
+
+        #Just with pd offset and while loop (no calculation of iterations)
+        end_date = self.data.index.max() #last day in dataset
+
+        train_start = self.validation_config["start_date"] #is (should be) pd datetime
+        train_end = self.get_split_index_by_prct(start_date=self.validation_config["start_date"], prct=self.validation_config["train_percent"])
+        #train_len = train_end - train_start
         
+        test_start = train_end + pd.DateOffset(1)
+
+        if self.validation_config["type"] == "single split":
+            test_end = end_date
+        else:
+            test_end = test_start + pd.DateOffset(self.validation_config["test_len"])
+
+
+        train_test_indices = []
+
+        match self.validation_config["type"]:
+            case "expanding window":
+                while test_end <= end_date:
+                    step_values = (train_start, train_end, test_start, test_end)
+                    train_test_indices.append(step_values)
+
+                    #Note: keep train_start always the same
+                    train_end = train_end + pd.DateOffset(steps)
+                    test_start = test_start + pd.DateOffset(steps)
+                    test_end = test_end + pd.DateOffset(steps)
+
+
+                # Old version with for loop
+                # for step in num_of_iterations:
+                #     step_values = (train_start, train_end, test_start, test_end)
+                #     step_test_start = train_start
+                #     step_
+                #     train_test_indices
+            case "rolling window":
+                while test_end <= end_date:
+                    step_values = (train_start, train_end, test_start, test_end)
+                    train_test_indices.append(step_values)
+
+                    train_start = train_start + pd.DateOffset(steps)
+                    train_end = train_end + pd.DateOffset(steps)
+                    test_start = test_start + pd.DateOffset(steps)
+                    test_end = test_end + pd.DateOffset(steps)
+
+
+            case "single split":
+                train_test_indices.append((train_start, train_end, test_start, test_end))
+        
+        self.validation_sets = train_test_indices
+
 
 
 
@@ -383,9 +473,11 @@ class ModelSarima(Model):
     def print_fit_summary(self):
         print(self.model_fit.summary())
 
-    def predict(self, days=validation_config["test_len"]):
+    def predict(self, days=None):
         # generate forecast for x time
         # (see base class)
+        if days == None:
+            days = self.validation_config["test_len"]
         pass
 
 
