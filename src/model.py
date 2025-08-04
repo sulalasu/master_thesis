@@ -16,11 +16,16 @@ class Model:
     def __init__(self, data: data_model.Data): #TODO: maybe add configuration?
         # TODO: change parameter of model to be of 'Data' type 
         self.data = data
+        # self.validation_type = None #either "rolling_window", "expanding_window", "single" if i just split/train/test once
+        self.validation_config = {}
 
         #Train/Test sets:
         self.split_index = None #Index at split point
         self.train_data = None
         self.test_data = None
+        self.train_test_data = None #list of tuples containg train/test df index pairs
+
+
 
         #Model(s)
         self.model = None
@@ -40,11 +45,14 @@ class Model:
 
 
 
+
+
+
     #------------------------------------------------------------------------------------------------
     # Helper functions
     #------------------------------------------------------------------------------------------------
     
-    def rolling_window(self, train_len: int, test_len: int):
+    def rolling_window(self, train_len: int, test_len: int, start_date: str=None):
         #split df into train and test set, by rolling window (same length
         # of history 'rolling' over data): in data 11-10 with train_len=3, test_len=2:
         # [1, 2, 3][4, 5] 6, 7, 8, 9, 10 
@@ -53,6 +61,9 @@ class Model:
         #  1, 2, 3 [4, 5, 6][7, 8] 9, 10
         #  1, 2, 3, 4 [5, 6, 7][8, 9] 10
         #  1, 2, 3, 4, 5 [6, 7, 8][9, 10]
+        if start_date != None:
+            start_date = pd.to_datetime(start_date)
+
         start_idx = train_len 
         end_idx = len(self.df) - test_len + 1 
 
@@ -69,16 +80,16 @@ class Model:
             yield train_set, test_set
 
 
-    def expanding_window(split_percent: float, test_len: int):
+    def expanding_window(train_percent: float, test_len: int):
         #TODO: move to top of file of respective class file
         from sklearn.model_selection import TimeSeriesSplit
 
         #create expanding window for cross validation.
-        # pass percentage for split in data (0-1), as well as pred_size, which is the number
-        # of rows to look ahead.
+        # pass percentage for split in data (0-1), which is the percentage of initially kept data for training, 
+        # as well as test_len, which is the number of rows to look ahead.
 
         #index where to split/start the expanding window
-        start_idx = get_split_index_by_prct(len(df), split_percent)
+        start_idx = get_split_index_by_prct(len(df), train_percent)
         end_idx = len(self.df) - test_len + 1
 
         res = []
@@ -95,9 +106,11 @@ class Model:
             res.append([train_set, test_set])
         return res
 
-    def get_split_index_by_prct(df_len, prct: float=0.77):
-        #returns index of split position
-
+    def get_split_index_by_prct(df, prct: float=0.77):
+        """
+        returns index of split position.
+        """
+        df_len = len(df)
         if prct <= 0 or prct > 1:
             raise ValueError("must be between 0 and 1, not 0")
         if df_len <= 2:
@@ -108,18 +121,20 @@ class Model:
 
         return idx
 
-
-    def split_by_percentage(self, percent=0.33):
-        """percent = percent to assign as test data. should be <0.5"""
-
+    #NOTE: not in use currently
+    def split_by_percentage(self, percent: float=0.33, start_date=None):
+        """
+        percent = percent to assign as train data. 
+        """
+        
         if percent >= 1 or percent <= 0:
             raise Exception(f"Training/test data ratio: test size: {percent}) must be float smaller than 1 (should be >0.5)")
-    
+
         self.split_index = int(len(self.data)*percent)
         self.train_data = self.data.iloc[: self.split_index]
         self.test_data = self.data.iloc[self.split_index:]
 
-    
+
 
 
 
@@ -224,14 +239,141 @@ class ModelSarima(Model):
 
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
         super().__init__(data)
+        self.p = None
+        self.q = None
+        self.d = None
+        self.validation_config = {}
 
-    def make_model(self, col: str, p, d, q):
-        #print(self.df.head())
-        # col=string for univariate forecasting column/target
-        #create model with trainign data + (hyper)parameters
-        #params are model parameters
+    #------------------------------------------------------------------------------------------------
+    # Setters
+    #------------------------------------------------------------------------------------------------
+    
+    def set_parameters(self, p: int=1, d: int=1, q: int=1):
+        self.p = p
+        self.d = d
+        self.d = q
+
+    def set_validation_expanding_window(self, train_percent: float, test_len: int, start_date: str=None):
+        """
+        Set parameters of validation_config variable (doesnt RUN validation).
+        There is only one config variable, so using setter again or for another method (rolling window)
+        overwrites this setting!
+        
+        Expanding window validation means, that an initial train set is expanded, 
+        by x days each iteration (here x = 1 day).
+
+
+        Args:
+        :param train_percent: Percentage of whole dataset, that should be used as initial training set
+        :type train_percent: float 
+        :param test_len: Number of days, to test into the future
+        :type test_len: int
+        :param start_date: Optional str in date format YYYY-MM-DD, to set start date of data set. Default None.
+        :type start_date: str (, optional)
+        
+        :raises ValueError: if bla bla bla
+        
+        :return: Nothing, but sets validation_config member variable.
+        :rtype: None
+        """
+        
+        if start_date == None:
+            start_date = self.data.index.min()
+        else:
+            start_date = pd.to_datetime(start_date)
+
+        self.validation_config = {
+            "type" : "expanding window",
+            "train_percent" : train_percent,
+            "test_len" : test_len,
+            "start_date" : start_date
+        }
+
+    def set_validation_rolling_window(self, train_len: float, test_len: int, start_date: str=None):
+        """
+        Set parameters of validation_config variable (doesnt RUN validation)-
+        There is only one config variable, so using setter again or for another method (expanding window)
+        overwrites this setting!
+
+        Rolling window validation means, a fixed number of days is used for training, which
+        rolls over dataset, and the following days of number <test_len> are used as test set.
+
+        Parameters
+        ----------
+        train_percent : float
+            float between 0-1, sets percentage of data to assign 
+            as training set.
+        test_len : int
+            Number of days to set as test set.
+        start_data : str, optional
+            Optional str in date format YYYY-MM-DD, to set 
+            start date of data set. Default None.
+        """
+        if start_date == None:
+            start_date = self.data.index.min()
+        else:
+            start_date = pd.to_datetime(start_date)
+
+        self.validation_config = {
+            "type" : "expanding window",
+            "train_len" : train_len,
+            "test_len" : test_len,
+            "start_date" : start_date
+        }
+
+    def set_validation_single_split(self, train_percent: float, start_date: str=None):
+        """
+        Set parameters of validation_config variable (doesnt RUN validation).
+        There is only one config variable, so using setter again or for another method (rolling window)
+        overwrites this setting!
+
+        Single split validation means, that whole dataset is split a single time into 
+        train and test sets.
+
+        Parameters
+        ----------
+        train_percent : float
+            float between 0-1, sets percentage of data to assign as training set
+        start_data : str
+            Optional str in date format YYYY-MM-DD, to set start date of data set. Default None.
+        """
+        if start_date == None:
+            start_date = self.data.index.min()
+        else:
+            start_date = pd.to_datetime(start_date)
+
+        self.validation_config = {
+            "type" : "expanding window",
+            "train_percent" : train_percent,
+            "start_date" : start_date
+        }
+
+        train_test_split()
+
+        
+
+
+
+    def get_validation_type(self):
+        print("Validation type:", self.validation_type["type"])
+
+    def make_model(self, col: str):
+        """
+        create model with trainign data + (hyper)parameters
+        
+        Parameters
+        ----------
+        col : string 
+            column (target) to use for for univariate forecasting 
+        """
+
+        #TODO: set up split AND validation
+        # i think for validation, best option to have a list of lists with train_start, train_end, test_start, test_end
+        # days (datetime), which i can cycle here (make_model, fit, print_fit_summary, predict), which is just
+        # inplace filtering of df, so i dont have to store multiple dfs!
         series = self.data[col]
-        self.model = ARIMA(series, order=(p,d,q))
+        #TODO: !use SARIMAX instead of ARIMA!
+        self.model = ARIMA(series, order=(1, 1, 1))#self.p, self.d, self.q))
 
 
     def fit(self):
@@ -241,7 +383,7 @@ class ModelSarima(Model):
     def print_fit_summary(self):
         print(self.model_fit.summary())
 
-    def predict(self, days):
+    def predict(self, days=validation_config["test_len"]):
         # generate forecast for x time
         # (see base class)
         pass
