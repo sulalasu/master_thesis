@@ -136,7 +136,7 @@ class Data(pd.DataFrame):
         ax.set_xlabel(xlabel)
         ax.set_ylabel('value')
         ax.set_xticks(ticks=range(len(xticks_labels)), labels=xticks_labels)
-        ax.legend(title=plot_type, loc='upper left', bbox_to_anchor=(1, 1))
+        ax.legend(title=plot_type, loc='upper right', bbox_to_anchor=(1, 1))
 
         #if more than 12 xticks, show only every third label
         if len(ax.get_xticklabels()) > 12:

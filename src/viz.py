@@ -6,6 +6,8 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.seasonal import MSTL #multiple seasonal decompose
 from pandas.plotting import autocorrelation_plot
 
+from src.config import SAVE_FIGS
+from src.utils import save_plots
 
 def line_plot(data):
     # TODO
@@ -111,3 +113,41 @@ def autocorr(column: pd.Series):
     autocorrelation_plot(column)
 
     plt.show()
+
+
+#----------------------------------------------------------------------------------------------
+# GENERAL VIZ
+#----------------------------------------------------------------------------------------------
+
+def plot_patient_wards(df: pd.DataFrame, n: int, save_figs=SAVE_FIGS, filename="pat_wards_counts", foldername="PAT_WARDS", location="./plots/02_cleaned"):
+    """Plots each patients wards time series of daily transfusion count.
+    Supposes that df is a wide df, where each ward has its own column with counts.
+    Only prints columns that have more than n transfusions.
+
+    Args:
+        df (pd.DataFrame): wide dataframe, with separate column for each ward. Column names
+        must start with 'PAT_WARD'.
+        n (int): number of transfusions must be above n for the column to be plotted.
+    """
+    for ward in df["PAT_WARD"].unique():
+
+        df_pat_ward_daily = df[df['PAT_WARD'] == ward]
+        df_pat_ward_daily.info()
+        df_filtered = df_pat_ward_daily.groupby(df_pat_ward_daily.index.date).count()
+        if len(df_filtered["PAT_WARD"]) < 500:
+            continue
+
+        fig, ax = plt.subplots()
+        ax.plot(df_filtered['PAT_WARD'])
+        ax.set_xlabel('date')
+        ax.set_title(ward)
+        fig.show()
+
+        #Old verions: delete
+        # df_filtered['PAT_WARD'].plot(x='date')
+        # plt.title(ward)
+        # plt.show()
+
+        if save_figs:
+            save_plots(filename=filename, foldername=foldername)
+

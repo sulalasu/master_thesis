@@ -402,7 +402,7 @@ class Model:
         plot_end = self.stepwise_forecasts.index.max()#self.stepwise_forecasts.keys()[-1][-1] #last element of last key
 
 
-        colors = iter(cm.rainbow(np.linspace(0.4, 1, len(self.stepwise_forecasts.columns))))
+        colors = iter(cm.rainbow(np.linspace(1, 0.6, len(self.stepwise_forecasts.columns))))
 
         #original_data = 
         plt.figure(figsize=(14,7))

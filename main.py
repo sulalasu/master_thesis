@@ -79,21 +79,9 @@ for col_name, col in df_clean.items():
 
 
 ##%%
+# Plot each patient wards transfusion counts (for wards with >500 transfusions)
+viz.plot_patient_wards(df_clean, n=500)
 
-for ward in df_clean["PAT_WARD"].unique():
-    df_pat_ward_daily = df_clean[df_clean['PAT_WARD'] == ward]
-    df_pat_ward_daily.info()
-    df_filtered = df_pat_ward_daily.groupby(df_pat_ward_daily.index.date).count()
-    if df_filtered["PAT_WARD"].max() < 60:
-        continue
-    df_filtered['PAT_WARD'].plot(x='date')
-    plt.title(ward)
-    plt.show()
-#df_pat_ward_daily['date'] = pd.to_datetime(df_pat_ward_daily['date'])
-#df_pat_ward_daily = df_pat_ward_daily.set_index('date')
-
-##%%
-df_filtered.head()
 
 
 
@@ -128,11 +116,11 @@ df_processed = transform.transform_data(df_clean)
 #TODO: save vizualisations to csv
 importlib.reload(data_model)
 
-print(df_clean.columns)
 df = data_model.Data(data=df_processed)
 ##%%
 #df.print_head()
 df.plot_seasonal(plot_type='daily', col_name='count')
+df.plot_seasonal(plot_type='weekly', col_name='count')
 
 
 ##%%
@@ -151,11 +139,6 @@ df.decompose_one(col_name='count')
 df.multiple_decompose(col_name="count", periods=[7, 365])
 
 
-
-##%%
-#Time series plots (acf, pacf etc)
-df.plot_autocorrelation(col_name='count')
-df.plot_partial_autocorrelation(col_name='count')
 
 
 ##%%
@@ -185,6 +168,89 @@ print(len(sel_wards))
 print(sel_wards)
 plt.show()
 
+#%%--------------------------------------------------------------------------------
+# STATIONARITY -- Check for Stat./Make stationarys
+#----------------------------------------------------------------------------------
+#TODOLIST:
+# 1. OG Data
+#    Visual & statistical check: const mean, variance, no seasonal component 
+#    --> then its stationary
+# 1.1 Visual assessment
+#    - Time series
+#    - ACF, PACF
+# 1.2 Statistical test
+#    - Unit root test 
+
+#  2. 
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.graphics.tsaplots import plot_pacf
+
+from statsmodels.tsa.stattools import adfuller
+
+
+##%%
+#Time series plots (acf, pacf etc)
+df.plot_autocorrelation(col_name='count')
+df.plot_partial_autocorrelation(col_name='count')
+
+num_differencing = 2
+i = 1
+df_diff = df_processed.copy()
+
+df_diff["count"].plot(lw=0.05)
+
+plot_acf(df_diff["count"], title="No differentiation")
+plot_pacf(df_diff["count"], title="No differentiation")
+adf_result = adfuller(df_diff["count"][1:])
+adfuller(df["count"])
+plt.plot(df["count"])
+plt.plot(df_diff["count"])
+
+#i think i can reject the H0 in both cases (df and df_diff), for df test staticstics is -11.49, far below 
+#critical values of 1%, 5%, 10%, same  for df_diff with -21.07. therefore i reject H0 (data is 
+# non stationary, has a unit root). H1 is true, data is stationary has no unit root. so no differencing needed actually?
+# --> do other tests like kpss!
+# --> check params for adf, like "AIC", "BIC" etc.
+
+print(adf_result[0])
+print(f"No differencing: \nadf: {adf_result[0]}\np-value: {adf_result[1]}\ncritical vals: {adf_result[4]}")
+while i <= num_differencing:
+    df_diff["count"] = df_diff["count"].diff()
+
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+    df_diff["count"].plot(ax=ax1, lw=0.05)
+    plot_acf(df_diff["count"].dropna(), ax=ax2)
+    plot_pacf(df_diff["count"].dropna(), ax=ax3)
+    fig.suptitle(f"differentiated {i}x")
+    fig.show()
+
+    adf_result = adfuller(df_diff["count"])
+    print(f"No differencing: \nadf: {adf_result[0]}\np-value: {adf_result[1]}\ncritical vals: {adf_result[4]}")
+
+
+    i += 1
+
+#seasonal differencing = subtracting value of previous season 
+# (i'll try week, so period = 7 (7 rows before in dataset))
+num_differencing = 3
+period = 365
+i = 1
+df_diff = df_processed.copy()
+
+df_diff["count"].plot(lw=0.05)
+plot_acf(df_diff["count"], title="No differentiation")
+plot_pacf(df_diff["count"], title="No differentiation")
+
+while i <= num_differencing:
+    df_diff["count"] = df_diff["count"].diff(periods=period)
+
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+    df_diff["count"].plot(ax=ax1, lw=0.05)
+    plot_acf(df_diff["count"].dropna(), ax=ax2)
+    plot_pacf(df_diff["count"].dropna(), ax=ax3)
+    fig.suptitle(f"differentiated {i}x")
+    fig.show()
+    i += 1
 
 
 
@@ -195,52 +261,6 @@ plt.show()
 
 
 #TODO: load data from csv
-
-
-#TODO: look into OOP + config.yml
-#sarima = Model1(config[0])
-#sarima.split([80, 20])
-#sarima.run(parma1, param2, parma3...)
-#sarima.predict(x_days)
-#sarima.test()
-#sarima.evaluate()
-#sarima.
-
-#all of the above could be grouped into sarima.run() (if certain stuff is set up before, like vals for params and split!)
-
-
-
-# if functional:
-# sarima = statsmodels.sarima(xx, xx, xx) # oder so
-
-
-
-
-#TODO: save data to csv
-
-
-
-
-#%%--------------------------------------------------------------------------------
-# DATA VIZ (FINISHED MODEL) 
-#----------------------------------------------------------------------------------
-# Plot prediction vs actual
-
-# If OOP:
-# sarima.plot_time()
-# sarima.plot_polar()
-
-# lstm.plot_time()
-# etc. (could even loop: for obj in [sarima, lstm]: obj.plot_time() obj.plot_polar())
-
-# if functional:
-
-#plot_time(sarima)  # could also usy apply or similar to use list or loop: for mod in models: plot_time(mod)
-
-#TODO: save to csv
-
-#%% ------------------------------------------------------------------------------
-# -- RUN MODEL --
 importlib.reload(model)
 
 arima = model.ModelSarima(df)
@@ -258,6 +278,8 @@ arima.print_fit_summary()
 arima.predict()
 arima.add_stepwise_forecasts()
 arima.plot_stepwise()
+
+
 # last_train_set = arima.data[arima.validation_sets[-1][0] : arima.validation_sets[-1][1]]["count"]
 # last_test_set = arima.data[arima.validation_sets[-1][2] : arima.validation_sets[-1][3]]["count"]
 # test_forecast_series = pd.Series(arima.predictions[-1].predicted_mean)
@@ -290,27 +312,33 @@ if arima.validation_config["test_len"]:
         #Rename last col to string of days to look ahead:
         test_df.columns = [*test_df.columns[:-1], f"Days ahead: {step}"]
 
-#%% 
-arima.df.head()
-arima.df.info()
 
-#%%
-# arima.test_class_implementation()
-#%%
-# arima.split()
+#TODO: add multiple runs, to test for different parameters
+#all of the above could be grouped into sarima.run() (if certain stuff is set up before, like vals for params and split!)
 
-#%%
-arima.fit("count", 1, 1, 1) #p=lag von signifikanz in autocorr.
 
-#%% Show summary
-print(arima.model_fit)
-# arima.fit_summary()
-#arima.make_stationary()
-#arima.split()
-#arima.create_model()
-#arima.test_model()
-#arima.evaluate_model()
+#TODO: save data to csv
 
+
+
+
+#%%--------------------------------------------------------------------------------
+# DATA VIZ (FINISHED MODEL) 
+#----------------------------------------------------------------------------------
+# Plot prediction vs actual
+
+# If OOP:
+# sarima.plot_time()
+# sarima.plot_polar()
+
+# lstm.plot_time()
+# etc. (could even loop: for obj in [sarima, lstm]: obj.plot_time() obj.plot_polar())
+
+# if functional:
+
+#plot_time(sarima)  # could also usy apply or similar to use list or loop: for mod in models: plot_time(mod)
+
+#TODO: save to csv
 
 
 
@@ -426,10 +454,11 @@ load.show_info(df=df)
 # Load data as Class Data:
 #TODO: rename previous 'df' to 'df_preprocessed' or something, 
 # to differentiate between Data object and DataFrame object
+importlib.reload(data_model)
 df = data_model.Data(data=df)
 #%%
-df.print_head()
 df.plot_seasonal(plot_type='daily', col_name='count')
+df.plot_seasonal(plot_type='weekly', col_name='count')
 
 
 
