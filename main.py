@@ -294,10 +294,10 @@ arima = model.ModelArima(df)
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-arima.set_validation_rolling_window(train_percent=0.90, test_len=7, start_date="2022-01-01")
+arima.set_validation_rolling_window(train_percent=0.80, test_len=14, start_date="2022-01-01") #TODO: change date/remove it
 
 
-arima.set_parameters(7, 1, 1) #7,1,1,
+arima.set_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
 arima.make_model(col="count")
 arima.fit()
 arima.print_fit_summary()

@@ -430,75 +430,86 @@ class Model:
         plt.show()
 
 
-
-    def get_stepwise_errors(self, error: str="all"):
+    def get_stepwise_errors(self):
         """Calculate stepwise errors for stepwise forecasts. That means that for x days ahead,
         for all predicted values, the supplied error is calculated.
-        Supporte
-
-        Args:
-            error (str): Abbreviation of one of the supported error metrics. Currently: MAE.
-            Defaults to 'all', which gets error measures for all supported error metrics.
-            Coming: MAPE; MedAE, MaxError, RMSE, MASE
-
-        Raises:
-            ValueError: If wrong 'error' is supplied
+        Currently Supported error metrics: MAE, MAPE, MedAE (Median absolute error), 
+        MaxError, RMSE, MSE
         """
-        possible_error_metrics = ["MAE", "MAPE", "MedAE", "RMSE", "MaxError", "MASE"] 
-        if error not in possible_error_metrics and error != "all":
-            raise ValueError(f"{error} is not in the possible list of errors. Please only use {possible_error_metrics}")
-        elif error == "all":
-            error = possible_error_metrics
-
         #initialize empty df with structure like stepwise_forecasts (cols, indices, no content)
-        stepwise_metric = pd.DataFrame().reindex_like(self.stepwise_forecasts)
-        stepwise_metric = stepwise_metric.merge(self.data["count"], left_index=True, right_index=True) #add original 'count' as ytrue
+        forecast_steps = self.stepwise_forecasts.columns
+        errors = ["ME", "MAE", "MedAE", "MAPE", "RMSE", "MaxError", "MASE", "MaxError"] 
 
-        #get specific error measure result if is a string (single error) or for all errors (if is list)
-        if type(error) == str:
-            error = [error]
+        self.forecast_errors = pd.DataFrame(columns=forecast_steps, index=errors)
+        # stepwise_metric = pd.DataFrame(columns=forecast_steps, index=errors).reindex_like(self.stepwise_forecasts)
 
-        # for err in error:
-        #     if err == "MAE":
-        #         results = self.get_mae(stepwise_metric)
-        #         self.forecast_errors[err] = results
-        #         print("test")
 
+        #add error measurements for each forecast step
         for col in self.stepwise_forecasts.columns:
             min_date = self.stepwise_forecasts[col].first_valid_index()
             max_date = self.stepwise_forecasts[col].last_valid_index()
+
             y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
             y_true = self.data.loc[min_date:max_date, "count"]
         
-            self.forecast_errors["ME"].append(mean(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-            self.forecast_errors["MAE"].append(metrics.mean_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-            self.forecast_errors["MedAE"].append(metrics.median_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-            self.forecast_errors["MAPE"].append(metrics.mean_absolute_percentage_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-            self.forecast_errors["MSE"].append(metrics.mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-            self.forecast_errors["RMSE"].append(metrics.root_mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-            self.forecast_errors["MaxError"].append(metrics.max_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+            self.forecast_errors.loc["ME", col] = np.median(y_pred - y_true) #median error -- shows bias (positive or negative)
+            self.forecast_errors.loc["MAE", col] = metrics.mean_absolute_error(y_pred=y_pred, y_true=y_true)
+            self.forecast_errors.loc["MedAE", col] = metrics.median_absolute_error(y_pred=y_pred, y_true=y_true)
+            self.forecast_errors.loc["MAPE", col] = metrics.mean_absolute_percentage_error(y_pred=y_pred, y_true=y_true)
+            self.forecast_errors.loc["MSE", col] = metrics.mean_squared_error(y_pred=y_pred, y_true=y_true)
+            self.forecast_errors.loc["RMSE", col] = metrics.root_mean_squared_error(y_pred=y_pred, y_true=y_true)
+            self.forecast_errors.loc["MaxError", col] = metrics.max_error(y_pred=y_pred, y_true=y_true)
 
 
-        # Temp. removed, because debugger cant step into 'case'
-        # for err in error:
-        #     match error:
-        #         case "MAE":
-        #             #results = metrics.mean_absolute_error(self.data["count"], self.stepwise_forecasts)
-        #             results = get_mae(stepwise_metric)
-        #             self.forecast_errors[error] = results
-        #         case "MAPE":
-        #             pass
-        #         case "MedAE":
-        #             pass
-        #         case "RMSE":
-        #             pass
-        #         case "MaxError":
-        #             pass
-        #         case "MASE":
-        #             pass
+    def get_stepwise_difference(self):
+        #TODO: For each stepwise forecast, get difference to actual value
+        pass
+
+
+
+
+    # def get_stepwise_errors(self, error: str="all"):
+    #     """Calculate stepwise errors for stepwise forecasts. That means that for x days ahead,
+    #     for all predicted values, the supplied error is calculated.
+    #     Supporte
+
+    #     Args:
+    #         error (str): Abbreviation of one of the supported error metrics. Currently: MAE.
+    #         Defaults to 'all', which gets error measures for all supported error metrics.
+    #         Coming: MAPE; MedAE, MaxError, RMSE, MASE
+
+    #     Raises:
+    #         ValueError: If wrong 'error' is supplied
+    #     """
+    #     possible_error_metrics = ["MAE", "MAPE", "MedAE", "RMSE", "MaxError", "MASE"] 
+    #     if error not in possible_error_metrics and error != "all":
+    #         raise ValueError(f"{error} is not in the possible list of errors. Please only use {possible_error_metrics}")
+    #     elif error == "all":
+    #         error = possible_error_metrics
+
+    #     #initialize empty df with structure like stepwise_forecasts (cols, indices, no content)
+    #     stepwise_metric = pd.DataFrame().reindex_like(self.stepwise_forecasts)
+    #     stepwise_metric = stepwise_metric.merge(self.data["count"], left_index=True, right_index=True) #add original 'count' as ytrue
+
+    #     #get specific error measure result if is a string (single error) or for all errors (if is list)
+    #     if type(error) == str:
+    #         error = [error]
+
+    #     #add error measurements for each forecast step
+    #     for col in self.stepwise_forecasts.columns:
+    #         min_date = self.stepwise_forecasts[col].first_valid_index()
+    #         max_date = self.stepwise_forecasts[col].last_valid_index()
+
+    #         y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
+    #         y_true = self.data.loc[min_date:max_date, "count"]
         
-        #remove y_true from df
-
+    #         self.forecast_errors["ME"].append(mean(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.forecast_errors["MAE"].append(metrics.mean_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.forecast_errors["MedAE"].append(metrics.median_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.forecast_errors["MAPE"].append(metrics.mean_absolute_percentage_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.forecast_errors["MSE"].append(metrics.mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.forecast_errors["RMSE"].append(metrics.root_mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.forecast_errors["MaxError"].append(metrics.max_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
 
 
     def get_mae(self, stepwise_metric: pd.DataFrame):
