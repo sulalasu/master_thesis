@@ -1,5 +1,6 @@
 import pandas as pd
 from time import time
+from pathlib import Path
 
 from src import config
 
@@ -53,3 +54,31 @@ def sample_rows(df, n: int=90000):
     df_sample = df.sample(n=n, random_state=10) 
     return df_sample
 
+
+#----------------------------------------------------------------------------------------------
+# GENERAL 
+#----------------------------------------------------------------------------------------------
+
+
+def save_plots(fig, filename_general: str, filename_suffix: str, location: str, foldername: str=""):
+    """Function to save files to specified location, creating folder with subfolder of 
+    name 'foldername' if not exists.
+
+    Args:
+        filename (str): naming scheme of the file. Date will be appended.
+        location (str): location in ./plots/
+        foldername (str): foldername to create addtional subfolder inside ./plots/00_subfolder/~
+        If not specified, no new subfolder is created and files are stored in 'location'
+    """
+    my_dir = Path(location)
+
+    #Create new subdirectory, if foldername is specified and not exists:
+    if foldername != "" and not my_dir.is_dir():
+        new_dir = Path.joinpath(my_dir, foldername)
+        new_dir.mkdir(parents=False, exist_ok=False)
+        print(f"Created new directory: {new_dir}")
+
+    #Save plot:
+    fig.savefig()
+        
+    

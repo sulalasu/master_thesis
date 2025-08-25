@@ -9,6 +9,7 @@ from pandas.plotting import autocorrelation_plot
 from src.config import SAVE_FIGS
 from src.utils import save_plots
 
+
 def line_plot(data):
     # TODO
     pass
@@ -149,5 +150,5 @@ def plot_patient_wards(df: pd.DataFrame, n: int, save_figs=SAVE_FIGS, filename="
         # plt.show()
 
         if save_figs:
-            save_plots(filename=filename, foldername=foldername)
+            save_plots(fig=fig, filename_general=filename, filename_suffix=ward, location=location, foldername=foldername)
 

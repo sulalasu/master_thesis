@@ -9,6 +9,7 @@ import statsmodels
 from statsmodels.tsa.arima.model import ARIMA
 #from statsmodels.tsa.statespace.sarimax import SARIMAX
 
+import sklearn.metrics as metrics #error metrics (mae, mape etc)
 
 
 class Model:
@@ -40,6 +41,20 @@ class Model:
         #self.model_runs = list() #List of past runs
         #TODO: save model runs as well as their state (parameters etc.)
         # so they can be accessed later. save to file.
+
+        #Forecast errors (stepwise, so for forecast 1 day ahead, 2 days ahead, etc.):
+        #Values are pd.Dataframes, with stepwise errors for forecast timeframe
+        self.forecast_errors = {
+            "MAE" : [], #Mean absolute error
+            "MedAE" : [], #Median absolute error
+            "MAPE" : [], #Mean absolute percentage error
+            "sMAPE" : [], #Symmetric mean absolute percentage error
+            "MASE" : [], #Mean absolute scaled error
+            "MSE" : [], #Mean squared error
+            "RMSE" : [], #Root mean squared error
+            "RMSSE" : [], #root mean squared scaled error
+            "MaxError" : [] #maximum error
+        }
 
         #Dont think is needed:
         #self.params = None #rename; prob better in base class.
@@ -395,8 +410,9 @@ class Model:
         self.test_data = self.data.iloc[self.split_index:]
 
 
-    def plot_stepwise(self):
-        """Plot the stepwise predictions, i.e. plot e.g. one-day-ahead prediction against test set, two-day-ahead, etc.
+    def plot_stepwise(self, days=None):
+        """Plot the stepwise predictions, 
+        i.e. plot e.g. one-day-ahead prediction against test set, two-day-ahead, etc.
         """
         plot_start = self.stepwise_forecasts.index.min() - pd.DateOffset(60) #first element of first key
         plot_end = self.stepwise_forecasts.index.max()#self.stepwise_forecasts.keys()[-1][-1] #last element of last key
@@ -414,6 +430,93 @@ class Model:
         plt.show()
 
 
+
+    def get_stepwise_errors(self, error: str="all"):
+        """Calculate stepwise errors for stepwise forecasts. That means that for x days ahead,
+        for all predicted values, the supplied error is calculated.
+        Supporte
+
+        Args:
+            error (str): Abbreviation of one of the supported error metrics. Currently: MAE.
+            Defaults to 'all', which gets error measures for all supported error metrics.
+            Coming: MAPE; MedAE, MaxError, RMSE, MASE
+
+        Raises:
+            ValueError: If wrong 'error' is supplied
+        """
+        possible_error_metrics = ["MAE", "MAPE", "MedAE", "RMSE", "MaxError", "MASE"] 
+        if error not in possible_error_metrics and error != "all":
+            raise ValueError(f"{error} is not in the possible list of errors. Please only use {possible_error_metrics}")
+        elif error == "all":
+            error = possible_error_metrics
+
+        #initialize empty df with structure like stepwise_forecasts (cols, indices, no content)
+        stepwise_metric = pd.DataFrame().reindex_like(self.stepwise_forecasts)
+        stepwise_metric = stepwise_metric.merge(self.data["count"], left_index=True, right_index=True) #add original 'count' as ytrue
+
+        #get specific error measure result if is a string (single error) or for all errors (if is list)
+        if type(error) == str:
+            error = [error]
+
+        # for err in error:
+        #     if err == "MAE":
+        #         results = self.get_mae(stepwise_metric)
+        #         self.forecast_errors[err] = results
+        #         print("test")
+
+        for col in self.stepwise_forecasts.columns:
+            min_date = self.stepwise_forecasts[col].first_valid_index()
+            max_date = self.stepwise_forecasts[col].last_valid_index()
+            y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
+            y_true = self.data.loc[min_date:max_date, "count"]
+        
+            self.forecast_errors["ME"].append(mean(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+            self.forecast_errors["MAE"].append(metrics.mean_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+            self.forecast_errors["MedAE"].append(metrics.median_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+            self.forecast_errors["MAPE"].append(metrics.mean_absolute_percentage_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+            self.forecast_errors["MSE"].append(metrics.mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+            self.forecast_errors["RMSE"].append(metrics.root_mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+            self.forecast_errors["MaxError"].append(metrics.max_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+
+
+        # Temp. removed, because debugger cant step into 'case'
+        # for err in error:
+        #     match error:
+        #         case "MAE":
+        #             #results = metrics.mean_absolute_error(self.data["count"], self.stepwise_forecasts)
+        #             results = get_mae(stepwise_metric)
+        #             self.forecast_errors[error] = results
+        #         case "MAPE":
+        #             pass
+        #         case "MedAE":
+        #             pass
+        #         case "RMSE":
+        #             pass
+        #         case "MaxError":
+        #             pass
+        #         case "MASE":
+        #             pass
+        
+        #remove y_true from df
+
+
+
+    def get_mae(self, stepwise_metric: pd.DataFrame):
+        self.stepwise_forecasts
+
+        for col in self.stepwise_forecasts.columns:
+            print(f"Calculating for {col}")
+            min_date = self.stepwise_forecasts[col].first_valid_index()
+            max_date = self.stepwise_forecasts[col].last_valid_index()
+            y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
+            y_true = self.data.loc[min_date:max_date, "count"]
+            result = metrics.mean_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"])
+
+            stepwise_metric[col] = result
+            print(result)
+
+        return stepwise_metric
+        
 
 
 
@@ -479,8 +582,9 @@ class Model:
 #--------------------------------------------------------------------
     
 
-# SARIMA
-class ModelSarima(Model):
+
+# ARIMA
+class ModelArima(Model):
 
 
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
@@ -496,7 +600,7 @@ class ModelSarima(Model):
     def set_parameters(self, p: int=1, d: int=1, q: int=1):
         self.p = p
         self.d = d
-        self.d = q
+        self.q = q
 
     def make_model(self, col: str):
         """
@@ -518,7 +622,7 @@ class ModelSarima(Model):
         #TODO: !use SARIMAX instead of ARIMA!
         
         for train_set in self.validation_sets:
-            self.models.append(ARIMA(series[train_set[0] : train_set[1]], order=(1, 1, 1)))#self.p, self.d, self.q))
+            self.models.append(ARIMA(series[train_set[0] : train_set[1]], order=(self.p, self.d, self.q))) #(1, 1, 1)))
 
 
     def fit(self):
@@ -537,7 +641,92 @@ class ModelSarima(Model):
                 print(fit.summary())
 
     def predict(self, days=None):
+        """Predict x days ahead, where x == 'days'
+
+        Args:
+            days (_type_, optional): Days to predict ahead. Defaults to None, then
+            days will be loaded from validation_config["test_len"].
+        """
         # generate forecast for x time
+        # (see base class)
+
+        #Important!
+        self.predictions = []
+
+        if days == None:
+            days = self.validation_config["test_len"]
+
+        for fit in self.model_fits:
+            self.predictions.append(fit.get_forecast(steps=days))
+
+
+
+
+# SARIMA
+class ModelSarima(Model):
+
+
+    def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
+        super().__init__(data)
+        self.p = None
+        self.q = None
+        self.d = None
+
+    #------------------------------------------------------------------------------------------------
+    # Setters
+    #------------------------------------------------------------------------------------------------
+    
+    def set_parameters(self, p: int=1, d: int=1, q: int=1):
+        self.p = p
+        self.d = d
+        self.q = q
+
+    def make_model(self, col: str):
+        """
+        create model with trainign data + (hyper)parameters
+        
+        Parameters
+        ----------
+        col : string 
+            column (target) to use for for univariate forecasting 
+        """
+        #Important!
+        self.models = []
+        
+        #TODO: set up split AND validation
+        # i think for validation, best option to have a list of lists with train_start, train_end, test_start, test_end
+        # days (datetime), which i can cycle here (make_model, fit, print_fit_summary, predict), which is just
+        # inplace filtering of df, so i dont have to store multiple dfs!
+        series = self.data[col]
+        #TODO: !use SARIMAX instead of ARIMA!
+        
+        for train_set in self.validation_sets:
+            self.models.append(ARIMA(series[train_set[0] : train_set[1]], order=(self.p, self.d, self.q))) #(1, 1, 1)))
+
+
+    def fit(self):
+        #Important!
+        self.model_fits = []
+
+        for model in self.models:
+            self.model_fits.append(model.fit())
+
+
+    def print_fit_summary(self, last_only=True):
+        if last_only:
+            print(self.model_fits[-1].summary())
+        else:
+            for fit in self.model_fits:
+                print(fit.summary())
+
+    def predict(self, days=None):
+        """Predict x days ahead, where x == 'days'
+
+        Args:
+            days (_type_, optional): Days to predict ahead. Defaults to None, then
+            days will be loaded from validation_config["test_len"].
+        """
+        # generate forecast for x days ahead
         # (see base class)
 
         #Important!

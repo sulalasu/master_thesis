@@ -3,6 +3,7 @@ import pandas as pd
 from time import time
 ENABLE_TIMING = True #If true, print messages. #TODO: add logging module to do that
 ENABLE_LOGGING = True
+SAVE_FIGS = False
 
 #Slice data while developing
 DEV_START_DATE = "2018-01-01"

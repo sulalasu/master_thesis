@@ -186,7 +186,7 @@ from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.tsaplots import plot_pacf
 
 from statsmodels.tsa.stattools import adfuller
-
+from statsmodels.tsa.stattools import kpss
 
 ##%%
 #Time series plots (acf, pacf etc)
@@ -201,16 +201,42 @@ df_diff["count"].plot(lw=0.05)
 
 plot_acf(df_diff["count"], title="No differentiation")
 plot_pacf(df_diff["count"], title="No differentiation")
-adf_result = adfuller(df_diff["count"][1:])
+
+#ADF -- Augmented dickey-fuller test
+adf_result_diff = adfuller(df_diff["count"][1:], autolag="AIC") #default
+adf_result_diff2 = adfuller(df_diff["count"][1:], autolag="BIC")
+adf_result = adfuller(df["count"], autolag="AIC") #default
+adf_result2 = adfuller(df["count"], autolag="BIC")
 adfuller(df["count"])
 plt.plot(df["count"])
 plt.plot(df_diff["count"])
 
 #i think i can reject the H0 in both cases (df and df_diff), for df test staticstics is -11.49, far below 
 #critical values of 1%, 5%, 10%, same  for df_diff with -21.07. therefore i reject H0 (data is 
-# non stationary, has a unit root). H1 is true, data is stationary has no unit root. so no differencing needed actually?
-# --> do other tests like kpss!
-# --> check params for adf, like "AIC", "BIC" etc.
+# non stationary, has a unit root). H1 is true, data is stationary has no unit root. so no differencing 
+# needed actually?
+
+#Different params for autolag:
+# no real differences in result, so doestn matter. (in gerneral AIC better for large datasets)
+
+
+#KPSS
+kpss_result_diff = kpss(df_diff["count"][1:])
+kpss_result = kpss(df["count"])
+kpss_result = kpss(df["count"])
+
+#kpss is one-sided test, if test statistics is greater than critical value, then H0 is rejected. 
+# H0 for KPSS is that ts is stationary, H1 ts is NOT stationary.
+# for kopss_result_diff, p-val = 0.1, test stat. = 0.0104, 0.0104 is not greater than 0.347 (10%), so H0 cant
+# be rejected, ts seems to be stationary.
+# for kpss_result, with p value = 0.01, test statistic = 1.258 is greater than 0.739 (1%), so H0 is rejected,
+# ts is not stationary. 
+
+# So for differentiated data (df_diff), both ADF + KPSS suggest stationarity.
+# For df (original data), ADF suggests stationarity, KPSS suggests non-stationarity.
+# with this guide: https://www.statsmodels.org/dev/examples/notebooks/generated/stationarity_detrending_adf_kpss.html
+# i should differntiate the original series (df), then check this for stationarity. i already did that, and
+# both tests suggest that data is stationary. so differencing was right call.
 
 print(adf_result[0])
 print(f"No differencing: \nadf: {adf_result[0]}\np-value: {adf_result[1]}\ncritical vals: {adf_result[4]}")
@@ -263,15 +289,15 @@ while i <= num_differencing:
 #TODO: load data from csv
 importlib.reload(model)
 
-arima = model.ModelSarima(df)
+arima = model.ModelArima(df)
 
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-arima.set_validation_rolling_window(train_percent=0.96, test_len=7, start_date="2022-01-01")
+arima.set_validation_rolling_window(train_percent=0.90, test_len=7, start_date="2022-01-01")
 
 
-arima.set_parameters(1,2,1)
+arima.set_parameters(7, 1, 1) #7,1,1,
 arima.make_model(col="count")
 arima.fit()
 arima.print_fit_summary()
@@ -279,7 +305,11 @@ arima.predict()
 arima.add_stepwise_forecasts()
 arima.plot_stepwise()
 
+#%%
+#Try out stepwise error measurements (now only mae):
+arima.get_stepwise_errors()
 
+#$$
 # last_train_set = arima.data[arima.validation_sets[-1][0] : arima.validation_sets[-1][1]]["count"]
 # last_test_set = arima.data[arima.validation_sets[-1][2] : arima.validation_sets[-1][3]]["count"]
 # test_forecast_series = pd.Series(arima.predictions[-1].predicted_mean)
@@ -288,6 +318,13 @@ arima.plot_stepwise()
 # plt.plot(last_test_set, label="test_data")
 # plt.plot(test_forecast_series, label="forecast")
 # plt.show()
+
+
+#%%
+#Try SARIMA:
+
+df.plot("count")
+
 
 #%%
 test_dict = {}
