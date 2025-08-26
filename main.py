@@ -294,21 +294,26 @@ arima = model.ModelArima(df)
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-arima.set_validation_rolling_window(train_percent=0.80, test_len=14, start_date="2022-01-01") #TODO: change date/remove it
+arima.set_validation_rolling_window(train_percent=0.980, test_len=7, start_date="2020-01-01") #TODO: change date/remove it
 
 
-arima.set_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
+arima.set_parameters(1, 1, 1) #7,1,1, #TODO: add hyperparam grid
+# arima.model_run(col="count")
 arima.make_model(col="count")
 arima.fit()
 arima.print_fit_summary()
 arima.predict()
 arima.add_stepwise_forecasts()
-arima.plot_stepwise()
+arima.add_stepwise_errors() #old: get_stepwise_errors()
+arima.add_stepwise_difference() #old: get_stepwise_difference()
 
 #%%
 #Try out stepwise error measurements (now only mae):
-arima.get_stepwise_errors()
-
+arima.plot_stepwise() #forecast
+#%%
+arima.plot_stepwise(df=arima.stepwise_forecast_difference, comparison=False) #forecast difference
+#%%
+arima.plot_stepwise_forecast_errors()
 #$$
 # last_train_set = arima.data[arima.validation_sets[-1][0] : arima.validation_sets[-1][1]]["count"]
 # last_test_set = arima.data[arima.validation_sets[-1][2] : arima.validation_sets[-1][3]]["count"]

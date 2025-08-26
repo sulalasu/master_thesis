@@ -43,18 +43,21 @@ class Model:
         # so they can be accessed later. save to file.
 
         #Forecast errors (stepwise, so for forecast 1 day ahead, 2 days ahead, etc.):
-        #Values are pd.Dataframes, with stepwise errors for forecast timeframe
-        self.forecast_errors = {
-            "MAE" : [], #Mean absolute error
-            "MedAE" : [], #Median absolute error
-            "MAPE" : [], #Mean absolute percentage error
-            "sMAPE" : [], #Symmetric mean absolute percentage error
-            "MASE" : [], #Mean absolute scaled error
-            "MSE" : [], #Mean squared error
-            "RMSE" : [], #Root mean squared error
-            "RMSSE" : [], #root mean squared scaled error
-            "MaxError" : [] #maximum error
-        }
+        #Values are pd.Dataframes, with stepwise errors for forecast timeframe:
+        # ME -- Median error (shows model bias to be positive or negative)
+        # MAE -- Mean absolute error
+        # MedAE -- Median absolute error
+        # MAPE -- Mean absolute percentage error
+        # sMAPE -- Symmetric mean absolute percentage error
+        # MASE -- Mean absolute scaled error
+        # MSE -- Mean squared error
+        # RMSE -- Root mean squared error
+        # RMSSE -- root mean squared scaled error
+        # MaxError -- maximum error
+        self.stepwise_forecast_errors = pd.DataFrame()
+
+        #Difference between stepwise forecast values to actual values
+        self.stepwise_forecast_difference = pd.DataFrame()
 
         #Dont think is needed:
         #self.params = None #rename; prob better in base class.
@@ -341,7 +344,7 @@ class Model:
 
     def add_stepwise_forecasts(self):
         """
-        Add stepwise_forecasts: dictionary containing number of keys in the length of test_len, 
+        Add stepwise_forecasts variable: dictionary containing number of keys in the length of test_len, 
         with values as pandas Series of forecasted values for respective days to look ahead. 
         E.g. if test_len (in rolling/expanding window) 
         is 7 days, keys "1" to "7" are added, containing the predicted value for predictions 
@@ -410,29 +413,49 @@ class Model:
         self.test_data = self.data.iloc[self.split_index:]
 
 
-    def plot_stepwise(self, days=None):
-        """Plot the stepwise predictions, 
+    #TODO: implement selection for days to plot ahead
+    def plot_stepwise(self, df: pd.DataFrame=None, comparison=True, comparison_col="count", days=None):
+        """Plot the stepwise predictions or difference against actual/true values.
         i.e. plot e.g. one-day-ahead prediction against test set, two-day-ahead, etc.
+        Defaults to plot stepwise_forecasts data, but can also be used for stepwise_forecast_difference 
+        (which is alos stepwise).
         """
-        plot_start = self.stepwise_forecasts.index.min() - pd.DateOffset(60) #first element of first key
-        plot_end = self.stepwise_forecasts.index.max()#self.stepwise_forecasts.keys()[-1][-1] #last element of last key
+        if df is None:
+            df = self.stepwise_forecasts
+
+        plot_start = df.index.min() - pd.DateOffset(60) #first element of first key
+        plot_end = df.index.max()#self.stepwise_forecasts.keys()[-1][-1] #last element of last key
 
 
-        colors = iter(cm.rainbow(np.linspace(1, 0.6, len(self.stepwise_forecasts.columns))))
+        colors = iter(cm.rainbow(np.linspace(1, 0.6, len(df.columns))))
 
         #original_data = 
         plt.figure(figsize=(14,7))
 
-        plt.plot(self.data[plot_start:plot_end]["count"], label="original data")
-        for col in self.stepwise_forecasts.columns:
-            plt.plot(self.stepwise_forecasts[col], label=col, color=next(colors))
+        if comparison == True:
+            plt.plot(self.data[plot_start:plot_end][comparison_col], label="original data")
+
+        for col in df.columns:
+            plt.plot(df[col], label=col, color=next(colors))
         plt.legend()
         plt.show()
 
 
-    def get_stepwise_errors(self):
-        """Calculate stepwise errors for stepwise forecasts. That means that for x days ahead,
-        for all predicted values, the supplied error is calculated.
+
+    def plot_stepwise_forecast_errors(self):
+        colors = iter(cm.rainbow(np.linspace(1, 0.6, len(self.stepwise_forecast_errors.columns))))
+
+        for col in self.stepwise_forecast_errors.columns:
+            if col == "MSE":
+                continue
+            plt.plot(self.stepwise_forecast_errors[col], label=col, color=next(colors))
+        plt.legend()
+        plt.show()
+
+
+    def add_stepwise_errors(self):
+        """Calculate stepwise errors for stepwise forecasts and adds it to model variable. 
+        That means that for x days ahead, for all predicted values, the supplied error is calculated.
         Currently Supported error metrics: MAE, MAPE, MedAE (Median absolute error), 
         MaxError, RMSE, MSE
         """
@@ -440,7 +463,8 @@ class Model:
         forecast_steps = self.stepwise_forecasts.columns
         errors = ["ME", "MAE", "MedAE", "MAPE", "RMSE", "MaxError", "MASE", "MaxError"] 
 
-        self.forecast_errors = pd.DataFrame(columns=forecast_steps, index=errors)
+        self.stepwise_forecast_errors = pd.DataFrame(columns=errors, index=forecast_steps)
+        # self.stepwise_forecast_errors = pd.DataFrame(columns=forecast_steps, index=errors)
         # stepwise_metric = pd.DataFrame(columns=forecast_steps, index=errors).reindex_like(self.stepwise_forecasts)
 
 
@@ -452,19 +476,33 @@ class Model:
             y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
             y_true = self.data.loc[min_date:max_date, "count"]
         
-            self.forecast_errors.loc["ME", col] = np.median(y_pred - y_true) #median error -- shows bias (positive or negative)
-            self.forecast_errors.loc["MAE", col] = metrics.mean_absolute_error(y_pred=y_pred, y_true=y_true)
-            self.forecast_errors.loc["MedAE", col] = metrics.median_absolute_error(y_pred=y_pred, y_true=y_true)
-            self.forecast_errors.loc["MAPE", col] = metrics.mean_absolute_percentage_error(y_pred=y_pred, y_true=y_true)
-            self.forecast_errors.loc["MSE", col] = metrics.mean_squared_error(y_pred=y_pred, y_true=y_true)
-            self.forecast_errors.loc["RMSE", col] = metrics.root_mean_squared_error(y_pred=y_pred, y_true=y_true)
-            self.forecast_errors.loc["MaxError", col] = metrics.max_error(y_pred=y_pred, y_true=y_true)
+            self.stepwise_forecast_errors.loc[col, "ME"] = np.median(y_pred - y_true) #median error -- shows bias (positive or negative)
+            self.stepwise_forecast_errors.loc[col, "MAE"] = metrics.mean_absolute_error(y_pred=y_pred, y_true=y_true)
+            self.stepwise_forecast_errors.loc[col, "MedAE"] = metrics.median_absolute_error(y_pred=y_pred, y_true=y_true)
+            self.stepwise_forecast_errors.loc[col, "MAPE"] = metrics.mean_absolute_percentage_error(y_pred=y_pred, y_true=y_true)
+            self.stepwise_forecast_errors.loc[col, "MSE"] = metrics.mean_squared_error(y_pred=y_pred, y_true=y_true)
+            self.stepwise_forecast_errors.loc[col, "RMSE"] = metrics.root_mean_squared_error(y_pred=y_pred, y_true=y_true)
+            self.stepwise_forecast_errors.loc[col, "MaxError"] = metrics.max_error(y_pred=y_pred, y_true=y_true)
+            # self.stepwise_forecast_errors.loc["ME", col] = np.median(y_pred - y_true) #median error -- shows bias (positive or negative)
+            # self.stepwise_forecast_errors.loc["MAE", col] = metrics.mean_absolute_error(y_pred=y_pred, y_true=y_true)
+            # self.stepwise_forecast_errors.loc["MedAE", col] = metrics.median_absolute_error(y_pred=y_pred, y_true=y_true)
+            # self.stepwise_forecast_errors.loc["MAPE", col] = metrics.mean_absolute_percentage_error(y_pred=y_pred, y_true=y_true)
+            # self.stepwise_forecast_errors.loc["MSE", col] = metrics.mean_squared_error(y_pred=y_pred, y_true=y_true)
+            # self.stepwise_forecast_errors.loc["RMSE", col] = metrics.root_mean_squared_error(y_pred=y_pred, y_true=y_true)
+            # self.stepwise_forecast_errors.loc["MaxError", col] = metrics.max_error(y_pred=y_pred, y_true=y_true)
 
 
-    def get_stepwise_difference(self):
-        #TODO: For each stepwise forecast, get difference to actual value
-        pass
+    def add_stepwise_difference(self, col: str="count"):
+        """Get a df with the difference between the stepwise forecasted values and 
+        the actual values. By default it subtracts 'count' from the daily stepwise
+        forecasted values and stores them in a new df called 'stepwise_forecast_difference'.
 
+        Args:
+            col (str, optional): Column name that should be subtracted from the forecasted values. 
+            Defaults to "count".
+        """
+        y_true = self.data[col].loc[self.stepwise_forecasts.index]
+        self.stepwise_forecast_difference = self.stepwise_forecasts.sub(y_true, axis=0)
 
 
 
@@ -503,30 +541,31 @@ class Model:
     #         y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
     #         y_true = self.data.loc[min_date:max_date, "count"]
         
-    #         self.forecast_errors["ME"].append(mean(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.forecast_errors["MAE"].append(metrics.mean_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.forecast_errors["MedAE"].append(metrics.median_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.forecast_errors["MAPE"].append(metrics.mean_absolute_percentage_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.forecast_errors["MSE"].append(metrics.mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.forecast_errors["RMSE"].append(metrics.root_mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.forecast_errors["MaxError"].append(metrics.max_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.stepwise_forecast_errors["ME"].append(mean(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.stepwise_forecast_errors["MAE"].append(metrics.mean_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.stepwise_forecast_errors["MedAE"].append(metrics.median_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.stepwise_forecast_errors["MAPE"].append(metrics.mean_absolute_percentage_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.stepwise_forecast_errors["MSE"].append(metrics.mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.stepwise_forecast_errors["RMSE"].append(metrics.root_mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
+    #         self.stepwise_forecast_errors["MaxError"].append(metrics.max_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
 
 
-    def get_mae(self, stepwise_metric: pd.DataFrame):
-        self.stepwise_forecasts
+    #Not needed anymore:
+    # def get_mae(self, stepwise_metric: pd.DataFrame):
+    #     self.stepwise_forecasts
 
-        for col in self.stepwise_forecasts.columns:
-            print(f"Calculating for {col}")
-            min_date = self.stepwise_forecasts[col].first_valid_index()
-            max_date = self.stepwise_forecasts[col].last_valid_index()
-            y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
-            y_true = self.data.loc[min_date:max_date, "count"]
-            result = metrics.mean_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"])
+    #     for col in self.stepwise_forecasts.columns:
+    #         print(f"Calculating for {col}")
+    #         min_date = self.stepwise_forecasts[col].first_valid_index()
+    #         max_date = self.stepwise_forecasts[col].last_valid_index()
+    #         y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
+    #         y_true = self.data.loc[min_date:max_date, "count"]
+    #         result = metrics.mean_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"])
 
-            stepwise_metric[col] = result
-            print(result)
+    #         stepwise_metric[col] = result
+    #         print(result)
 
-        return stepwise_metric
+    #     return stepwise_metric
         
 
 
@@ -612,6 +651,38 @@ class ModelArima(Model):
         self.p = p
         self.d = d
         self.q = q
+
+    #composite function:
+    def model_run(self, col: str="count", print_fit_summary=True, last_only=True, days=None):
+        """Composite function that combines make_model, fit(), print_fit_summary(), predict(),
+        add_stepwise_forecasts()
+
+        Args:
+            col (str, optional): column to make model and run prediction for. 
+            Defaults to "count".
+            print_fit_summary (bool, optional): If true, prints the summary for the fit().
+            Defaults to True
+            last_only (bool, optional): If true prints only summary for last fit(). Otherwise prints
+            summary for every fit (of rolling/expanding window).
+            Only relevant if print_fit_summary argument is true. defaults to True.
+            days (int, optional): Manually set days to look ahead (steps). Normally supplied via
+            validation_config by setter functions for rolling/expanding window or single split.
+            Defaults to None, which will then use abovementioned value. 
+        """
+
+        self.make_model(col=col)
+        self.fit()
+        if print_fit_summary:
+            self.print_fit_summary(last_only=last_only)
+        self.predict(days=days)
+
+        #Get stepwise values:
+        self.add_stepwise_forecasts()
+        self.add_stepwise_errors()
+        self.add_stepwise_difference() 
+
+
+
 
     def make_model(self, col: str):
         """
