@@ -647,7 +647,7 @@ class ModelArima(Model):
     # Setters
     #------------------------------------------------------------------------------------------------
     
-    def set_parameters(self, p: int=1, d: int=1, q: int=1):
+    def set_model_parameters(self, p: int=1, d: int=1, q: int=1):
         self.p = p
         self.d = d
         self.q = q
@@ -758,7 +758,7 @@ class ModelSarima(Model):
     # Setters
     #------------------------------------------------------------------------------------------------
     
-    def set_parameters(self, p: int=1, d: int=1, q: int=1):
+    def set_model_parameters(self, p: int=1, d: int=1, q: int=1):
         self.p = p
         self.d = d
         self.q = q
