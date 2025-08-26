@@ -7,7 +7,7 @@ from matplotlib.pyplot import cm #color palette
 from sklearn.model_selection import train_test_split
 import statsmodels
 from statsmodels.tsa.arima.model import ARIMA
-#from statsmodels.tsa.statespace.sarimax import SARIMAX
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 import sklearn.metrics as metrics #error metrics (mae, mape etc)
 
@@ -76,88 +76,6 @@ class Model:
     # Helper functions
     #------------------------------------------------------------------------------------------------
     
-    # #Not used anymore
-    # def rolling_window(self, train_len: int, test_len: int, start_date: str=None):
-    #     #split df into train and test set, by rolling window (same length
-    #     # of history 'rolling' over data): in data 11-10 with train_len=3, test_len=2:
-    #     # [1, 2, 3][4, 5] 6, 7, 8, 9, 10 
-    #     #  1 [2, 3, 4][5, 6] 7, 8, 9, 10 
-    #     #  1, 2 [3, 4, 5][6, 7] 8, 9, 10
-    #     #  1, 2, 3 [4, 5, 6][7, 8] 9, 10
-    #     #  1, 2, 3, 4 [5, 6, 7][8, 9] 10
-    #     #  1, 2, 3, 4, 5 [6, 7, 8][9, 10]
-    #     if start_date != None:
-    #         start_date = pd.to_datetime(start_date)
-
-    #     start_idx = train_len 
-    #     end_idx = len(self.df) - test_len + 1 
-
-    #     for split_idx in range(start_idx, end_idx):
-
-    #         #use iloc to get a view, not a copy (like you would get with df[n:m])
-    #         train_set = self.df.iloc[split_idx-train_len : split_idx]
-    #         test_set = self.df.iloc[split_idx : split_idx+test_len]
-
-            
-    #         # print(f"\ntrain set ({len(train_set)}):\n{train_set}")
-    #         # print(f"\ntest_set ({len(test_set)}):\n{test_set}")
-
-    #         yield train_set, test_set
-
-    # #Not used anymore
-    # def expanding_window(self, train_percent: float, test_len: int):
-    #     #TODO: move to top of file of respective class file
-    #     from sklearn.model_selection import TimeSeriesSplit
-
-    #     #create expanding window for cross validation.
-    #     # pass percentage for split in data (0-1), which is the percentage of initially kept data for training, 
-    #     # as well as test_len, which is the number of rows to look ahead.
-
-    #     #index where to split/start the expanding window
-    #     start_idx = self.get_split_index_by_prct(len(df), train_percent)
-    #     end_idx = len(self.df) - test_len + 1
-
-    #     res = []
-
-    #     for split_idx in range(start_idx, end_idx):
-    #         train_set = self.df.iloc[:split_idx]
-    #         test_set = self.df.iloc[split_idx:split_idx+test_len]
-
-    #         # print(f"\nsplit index: {split_idx}")
-    #         # print(f"train set ({len(train_set)}):\n{train_set}")
-    #         # print(f"\ntest_set ({len(test_set)}):\n{test_set}\n")
-
-    #         # yield train_set, test_set
-    #         res.append([train_set, test_set])
-    #     return res
-
-    # # Not used anymore:
-    # def validate_rolling_window(self, data, w, sliding=False):
-    #     """
-    #     w : window size in days
-    #     sliding : If True window slides by one day, if false window slides by window size. 
-    #     """
-    #     if self.test_data == None or self.train_data == None:
-    #         raise ValueError("test_data and train_data cant be None. Use split_by_percentage method,"
-    #         "to assign data to test and train set.")
-
-    #     #Habe das hier implementiert, damit man nicht den split auch noch 
-    #     # als argument beim fct call angeben muss. Wenn ich das hier einbaue, müsste
-    #     # ich noch return zu split_by_percentage machen
-    #     train = self.train_data
-    #     test = self.test_data
-
-    #     #TODO: this has to be done using for t in range(), to
-    #     # account for step size of window (if sliding=True, i want
-    #     # to jump 3 days, if w=3)
-    #     for t in test[:len(test) - w + 1]:
-    #         print(test, len(test) - w + 1)
-
-        
-
-    #     #run model against test data set wtih rollling window
-    #     pass
-
     def set_validation_expanding_window(self, train_percent: float, test_len: int, start_date: str=None):
         """
         Set parameters of validation_config variable (doesnt RUN validation) and create a 
@@ -318,12 +236,6 @@ class Model:
                     test_end = test_end + pd.DateOffset(steps)
 
 
-                # Old version with for loop
-                # for step in num_of_iterations:
-                #     step_values = (train_start, train_end, test_start, test_end)
-                #     step_test_start = train_start
-                #     step_
-                #     train_test_indices
             case "rolling window":
                 while test_end <= end_date:
                     step_values = (train_start, train_end, test_start, test_end)
@@ -464,9 +376,6 @@ class Model:
         errors = ["ME", "MAE", "MedAE", "MAPE", "RMSE", "MaxError", "MASE", "MaxError"] 
 
         self.stepwise_forecast_errors = pd.DataFrame(columns=errors, index=forecast_steps)
-        # self.stepwise_forecast_errors = pd.DataFrame(columns=forecast_steps, index=errors)
-        # stepwise_metric = pd.DataFrame(columns=forecast_steps, index=errors).reindex_like(self.stepwise_forecasts)
-
 
         #add error measurements for each forecast step
         for col in self.stepwise_forecasts.columns:
@@ -483,14 +392,6 @@ class Model:
             self.stepwise_forecast_errors.loc[col, "MSE"] = metrics.mean_squared_error(y_pred=y_pred, y_true=y_true)
             self.stepwise_forecast_errors.loc[col, "RMSE"] = metrics.root_mean_squared_error(y_pred=y_pred, y_true=y_true)
             self.stepwise_forecast_errors.loc[col, "MaxError"] = metrics.max_error(y_pred=y_pred, y_true=y_true)
-            # self.stepwise_forecast_errors.loc["ME", col] = np.median(y_pred - y_true) #median error -- shows bias (positive or negative)
-            # self.stepwise_forecast_errors.loc["MAE", col] = metrics.mean_absolute_error(y_pred=y_pred, y_true=y_true)
-            # self.stepwise_forecast_errors.loc["MedAE", col] = metrics.median_absolute_error(y_pred=y_pred, y_true=y_true)
-            # self.stepwise_forecast_errors.loc["MAPE", col] = metrics.mean_absolute_percentage_error(y_pred=y_pred, y_true=y_true)
-            # self.stepwise_forecast_errors.loc["MSE", col] = metrics.mean_squared_error(y_pred=y_pred, y_true=y_true)
-            # self.stepwise_forecast_errors.loc["RMSE", col] = metrics.root_mean_squared_error(y_pred=y_pred, y_true=y_true)
-            # self.stepwise_forecast_errors.loc["MaxError", col] = metrics.max_error(y_pred=y_pred, y_true=y_true)
-
 
     def add_stepwise_difference(self, col: str="count"):
         """Get a df with the difference between the stepwise forecasted values and 
@@ -505,68 +406,6 @@ class Model:
         self.stepwise_forecast_difference = self.stepwise_forecasts.sub(y_true, axis=0)
 
 
-
-    # def get_stepwise_errors(self, error: str="all"):
-    #     """Calculate stepwise errors for stepwise forecasts. That means that for x days ahead,
-    #     for all predicted values, the supplied error is calculated.
-    #     Supporte
-
-    #     Args:
-    #         error (str): Abbreviation of one of the supported error metrics. Currently: MAE.
-    #         Defaults to 'all', which gets error measures for all supported error metrics.
-    #         Coming: MAPE; MedAE, MaxError, RMSE, MASE
-
-    #     Raises:
-    #         ValueError: If wrong 'error' is supplied
-    #     """
-    #     possible_error_metrics = ["MAE", "MAPE", "MedAE", "RMSE", "MaxError", "MASE"] 
-    #     if error not in possible_error_metrics and error != "all":
-    #         raise ValueError(f"{error} is not in the possible list of errors. Please only use {possible_error_metrics}")
-    #     elif error == "all":
-    #         error = possible_error_metrics
-
-    #     #initialize empty df with structure like stepwise_forecasts (cols, indices, no content)
-    #     stepwise_metric = pd.DataFrame().reindex_like(self.stepwise_forecasts)
-    #     stepwise_metric = stepwise_metric.merge(self.data["count"], left_index=True, right_index=True) #add original 'count' as ytrue
-
-    #     #get specific error measure result if is a string (single error) or for all errors (if is list)
-    #     if type(error) == str:
-    #         error = [error]
-
-    #     #add error measurements for each forecast step
-    #     for col in self.stepwise_forecasts.columns:
-    #         min_date = self.stepwise_forecasts[col].first_valid_index()
-    #         max_date = self.stepwise_forecasts[col].last_valid_index()
-
-    #         y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
-    #         y_true = self.data.loc[min_date:max_date, "count"]
-        
-    #         self.stepwise_forecast_errors["ME"].append(mean(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.stepwise_forecast_errors["MAE"].append(metrics.mean_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.stepwise_forecast_errors["MedAE"].append(metrics.median_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.stepwise_forecast_errors["MAPE"].append(metrics.mean_absolute_percentage_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.stepwise_forecast_errors["MSE"].append(metrics.mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.stepwise_forecast_errors["RMSE"].append(metrics.root_mean_squared_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-    #         self.stepwise_forecast_errors["MaxError"].append(metrics.max_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"]))
-
-
-    #Not needed anymore:
-    # def get_mae(self, stepwise_metric: pd.DataFrame):
-    #     self.stepwise_forecasts
-
-    #     for col in self.stepwise_forecasts.columns:
-    #         print(f"Calculating for {col}")
-    #         min_date = self.stepwise_forecasts[col].first_valid_index()
-    #         max_date = self.stepwise_forecasts[col].last_valid_index()
-    #         y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
-    #         y_true = self.data.loc[min_date:max_date, "count"]
-    #         result = metrics.mean_absolute_error(y_pred=self.stepwise_forecasts.loc[min_date:max_date, col], y_true=self.data.loc[min_date:max_date, "count"])
-
-    #         stepwise_metric[col] = result
-    #         print(result)
-
-    #     return stepwise_metric
-        
 
 
 
@@ -704,7 +543,10 @@ class ModelArima(Model):
         #TODO: !use SARIMAX instead of ARIMA!
         
         for train_set in self.validation_sets:
-            self.models.append(ARIMA(series[train_set[0] : train_set[1]], order=(self.p, self.d, self.q))) #(1, 1, 1)))
+            #Add exogenous, check for enforce_stationarity, enforce_invertibility
+            self.models.append(ARIMA(
+                endog=series[train_set[0] : train_set[1]], 
+                order=(self.p, self.d, self.q))) 
 
 
     def fit(self):
@@ -758,19 +600,60 @@ class ModelSarima(Model):
     # Setters
     #------------------------------------------------------------------------------------------------
     
-    def set_model_parameters(self, p: int=1, d: int=1, q: int=1):
+    def set_model_parameters(
+            self, p: int=1, d: int=1, q: int=1, P: int=1, D: int=1,
+            Q: int=1, m: int=7):
         self.p = p
         self.d = d
         self.q = q
 
-    def make_model(self, col: str):
+        self.P = P
+        self.D = D
+        self.Q = Q
+        self.m = m
+
+
+    #composite function:
+    def model_run(self, exog: list=None, col: str="count", print_fit_summary=True, last_only=True, days=None):
+        """Composite function that combines make_model, fit(), print_fit_summary(), predict(),
+        add_stepwise_forecasts()
+
+        Args:
+            col (str, optional): column to make model and run prediction for. 
+            Defaults to "count".
+            print_fit_summary (bool, optional): If true, prints the summary for the fit().
+            Defaults to True
+            last_only (bool, optional): If true prints only summary for last fit(). Otherwise prints
+            summary for every fit (of rolling/expanding window).
+            Only relevant if print_fit_summary argument is true. defaults to True.
+            days (int, optional): Manually set days to look ahead (steps). Normally supplied via
+            validation_config by setter functions for rolling/expanding window or single split.
+            Defaults to None, which will then use abovementioned value. 
+        """
+
+        self.make_model(col=col, exog=exog)
+        self.fit()
+        if print_fit_summary:
+            self.print_fit_summary(last_only=last_only)
+        self.predict(days=days)
+
+        #Get stepwise values:
+        self.add_stepwise_forecasts()
+        self.add_stepwise_errors()
+        self.add_stepwise_difference() 
+
+
+
+    def make_model(self, col: str, exog: list=None):
         """
         create model with trainign data + (hyper)parameters
         
         Parameters
         ----------
         col : string 
-            column (target) to use for for univariate forecasting 
+            columns (target) to use for for univariate forecasting 
+        exog : list of strings
+            column names of exogenous variables.
         """
         #Important!
         self.models = []
@@ -782,8 +665,21 @@ class ModelSarima(Model):
         series = self.data[col]
         #TODO: !use SARIMAX instead of ARIMA!
         
-        for train_set in self.validation_sets:
-            self.models.append(ARIMA(series[train_set[0] : train_set[1]], order=(self.p, self.d, self.q))) #(1, 1, 1)))
+        if exog == None:
+            for train_set in self.validation_sets:
+                self.models.append(SARIMAX(
+                    endog=series[train_set[0] : train_set[1]], 
+                    order=(self.p, self.d, self.q),
+                    seasonal_order=(self.P, self.D, self.Q, self.m))) 
+        else:
+            exogenous = self.data[exog]
+            for train_set in self.validation_sets:
+                self.models.append(SARIMAX(
+                    endog=series[train_set[0] : train_set[1]], 
+                    exog=exogenous[train_set[0] : train_set[1]], 
+                    order=(self.p, self.d, self.q),
+                    seasonal_order=(self.P, self.D, self.Q, self.m))) 
+
 
 
     def fit(self):

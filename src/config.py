@@ -6,7 +6,7 @@ ENABLE_LOGGING = True
 SAVE_FIGS = False
 
 #Slice data while developing
-DEV_START_DATE = "2018-01-01"
+DEV_START_DATE = "2020-01-01"
 DEV_END_DATE = "2024-12-31"
 
 # DATE: Mapping of column names with their respective format

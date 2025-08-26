@@ -250,7 +250,7 @@ while i <= num_differencing:
     fig.suptitle(f"differentiated {i}x")
     fig.show()
 
-    adf_result = adfuller(df_diff["count"])
+    adf_result = adfuller(df_diff["count"].dropna())
     print(f"No differencing: \nadf: {adf_result[0]}\np-value: {adf_result[1]}\ncritical vals: {adf_result[4]}")
 
 
@@ -285,21 +285,28 @@ while i <= num_differencing:
 # MODEL BUILDING
 #----------------------------------------------------------------------------------
 
+#TODO: add multiple runs, to test for different parameters
+#all of the above could be grouped into sarima.run() (if certain stuff is set up before, like vals for params and split!)
+#TODO: save data to csv
+#TODO: load data from csv
 
+
+
+#%% 
 # ARIMA
 #----------------------------------------------------------------------------------
 
-#TODO: load data from csv
 importlib.reload(model)
+importlib.reload(config) #for DEV_START_DATE
 
 
 arima = model.ModelArima(df)
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-arima.set_validation_rolling_window(train_percent=0.980, test_len=7, start_date="2020-01-01") #TODO: change date/remove it
+arima.set_validation_rolling_window(train_percent=0.90, test_len=14, start_date=config.DEV_START_DATE) #TODO: change date/remove it
 
-arima.set_model_parameters(1, 1, 1) #7,1,1, #TODO: add hyperparam grid
+arima.set_model_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
 arima.model_run(col="count")
 
 #Try out stepwise error measurements (now only mae):
@@ -313,6 +320,23 @@ arima.plot_stepwise_forecast_errors()
 #----------------------------------------------------------------------------------
 
 
+importlib.reload(model)
+importlib.reload(config) #for DEV_START_DATE
+
+
+sarima = model.ModelSarima(df)
+# Test runs (it works as expected)
+# arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
+# arima.set_validation_single_split(train_percent=0.75)
+sarima.set_validation_rolling_window(train_percent=0.9800, test_len=14, start_date=config.DEV_START_DATE) #TODO: change date/remove it
+
+sarima.set_model_parameters(1, 1, 1) #7,1,1, #TODO: add hyperparam grid
+sarima.model_run(col="count", exog=["PAT_BG_0", "PAT_BG_A", "PAT_BG_AB", "PAT_BG_B"])
+
+#Try out stepwise error measurements (now only mae):
+sarima.plot_stepwise() #forecast
+sarima.plot_stepwise(df=sarima.stepwise_forecast_difference, comparison=False) #forecast difference
+sarima.plot_stepwise_forecast_errors()
 
 
 
@@ -328,42 +352,6 @@ arima.plot_stepwise_forecast_errors()
 
 
 
-
-
-
-
-#%%
-#implmenetned in add_stepwise_forecast in class Model
-# test_dict = {}
-# test_df = pd.DataFrame()
-# if arima.validation_config["test_len"]:
-#     #Add 'step' (day x) ahead
-#     for step in range(1, arima.validation_config["test_len"] + 1):
-#         print(step)
-#         step_forecasts = pd.Series()
-
-#         # Add values of each prediction to 'step' (row wise)
-#         for pred in arima.predictions:
-#             step_forecasts = pd.concat([step_forecasts, pred.predicted_mean.iloc[[step-1]]])
-        
-#         print(step_forecasts)
-#         step_forecasts.sort_index(inplace=True)
-#         if step == 1:
-#             test_df = step_forecasts.to_frame()
-#         else:
-#             test_df = pd.concat([test_df, step_forecasts], axis=1)
-        
-#         #Rename last col to string of days to look ahead:
-#         test_df.columns = [*test_df.columns[:-1], f"Days ahead: {step}"]
-
-
-
-
-#TODO: add multiple runs, to test for different parameters
-#all of the above could be grouped into sarima.run() (if certain stuff is set up before, like vals for params and split!)
-
-
-#TODO: save data to csv
 
 
 
