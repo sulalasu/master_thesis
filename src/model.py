@@ -355,6 +355,8 @@ class Model:
 
 
     def plot_stepwise_forecast_errors(self):
+        #TODO: change colors to be more different. 
+        # TODO: maybe add error names directly to lines instead of having a legend 
         colors = iter(cm.rainbow(np.linspace(1, 0.6, len(self.stepwise_forecast_errors.columns))))
 
         for col in self.stepwise_forecast_errors.columns:
@@ -373,7 +375,7 @@ class Model:
         """
         #initialize empty df with structure like stepwise_forecasts (cols, indices, no content)
         forecast_steps = self.stepwise_forecasts.columns
-        errors = ["ME", "MAE", "MedAE", "MAPE", "RMSE", "MaxError", "MASE", "MaxError"] 
+        errors = ["ME", "MAE", "MedAE", "MAPE", "RMSE", "MASE", "MaxError"] 
 
         self.stepwise_forecast_errors = pd.DataFrame(columns=errors, index=forecast_steps)
 

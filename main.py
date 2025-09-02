@@ -304,9 +304,9 @@ arima = model.ModelArima(df)
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-arima.set_validation_rolling_window(train_percent=0.90, test_len=14, start_date=config.DEV_START_DATE) #TODO: change date/remove it
+arima.set_validation_rolling_window(train_percent=0.980, test_len=14, start_date=config.DEV_START_DATE) #TODO: change date/remove it
 
-arima.set_model_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
+arima.set_model_parameters(1, 1, 1) #7,1,1, #TODO: add hyperparam grid
 arima.model_run(col="count")
 
 #Try out stepwise error measurements (now only mae):
@@ -331,7 +331,7 @@ sarima = model.ModelSarima(df)
 sarima.set_validation_rolling_window(train_percent=0.9800, test_len=14, start_date=config.DEV_START_DATE) #TODO: change date/remove it
 
 sarima.set_model_parameters(1, 1, 1) #7,1,1, #TODO: add hyperparam grid
-sarima.model_run(col="count", exog=["PAT_BG_0", "PAT_BG_A", "PAT_BG_AB", "PAT_BG_B"])
+sarima.model_run(col="count")#, exog=["PAT_BG_0", "PAT_BG_A", "PAT_BG_AB", "PAT_BG_B"])
 
 #Try out stepwise error measurements (now only mae):
 sarima.plot_stepwise() #forecast
