@@ -22,10 +22,11 @@ import importlib
 print(load.__file__)
 print(clean.__file__)
 
+IMAGE_PATH = "plots/2025_10_10-Plots_for_Meeting/"
 
 
 
-##%%--------------------------------------------------------------------------------
+#%%--------------------------------------------------------------------------------
 # INPUT
 #----------------------------------------------------------------------------------
 
@@ -46,12 +47,12 @@ print(df_raw.columns)
 
 
 
-##%%--------------------------------------------------------------------------------
+#%%--------------------------------------------------------------------------------
 # CLEANING 
 #----------------------------------------------------------------------------------
 #Runs only if no file exists at. If not existing, saves df to new file
-
 #unify dates, columns etc. rename stuff
+IMAGES_PATH_EXPLORATION = IMAGE_PATH + "/00-Data-Exploration/"
 
 df_clean = clean.clean_data(df_raw)
 # df_clean.sort_index(inplace=True)
@@ -73,14 +74,15 @@ for col_name, col in df_clean.items():
     if col_name in ["EC_ID_O_hash", "EC_ID_I_hash"]:
         continue
     print(col.value_counts())
-    col.value_counts()[:40].plot(kind="bar", title=col_name)
+    col.value_counts()[:40].plot(kind="bar", title=col_name,)
+    plt.savefig(fname=IMAGES_PATH_EXPLORATION+f"01-barcharts-value_counts-{col_name}")
     plt.show()
 
 
-
+importlib.reload(viz)
 ##%%
 # Plot each patient wards transfusion counts (for wards with >500 transfusions)
-viz.plot_patient_wards(df_clean, n=500)
+viz.plot_patient_wards(df_clean, n=500, save_figs=False, location=IMAGES_PATH_EXPLORATION, foldername="")
 
 
 
@@ -88,7 +90,7 @@ viz.plot_patient_wards(df_clean, n=500)
 
 
 
-##%%--------------------------------------------------------------------------------
+#%%--------------------------------------------------------------------------------
 # TRANSFORMING/PROCESSING
 #----------------------------------------------------------------------------------
 # make STATIONARY! (if all models need that, otherwise make it a member function)
@@ -101,17 +103,32 @@ viz.plot_patient_wards(df_clean, n=500)
 #NOTE: covid/grippe muss evnetuell imputiert werden da nur wöchentlich
 #NOTE: kann gut zeigen, dass wien gleichen verlauf hat wie bundesländer, daher kann ich Ö-weite Daten
 # nehmen, falls es keine wien-spezifischen Daten gibt.
+importlib.reload(transform)
 
 # make daily aggregations for categorical variables
 df_processed = transform.transform_data(df_clean)
+
+ward_cols = ['ward_AN', 'ward_CH', 'ward_I1', 'ward_I3', 'ward_Other', 'ward_UC']
+for ward in ward_cols:
+    viz.seasonal_plot(df_processed, plot_type="weekly", col_name=ward)
+    viz.seasonal_plot(df_processed, plot_type="daily", col_name=ward)
+
+
 #TODO: save data to csv
+# # Plot daily/weekly cases influenza
+# fig, ax = plt.subplots(1)
+# ax.plot(df_processed["new_cases_daily"])
+# ax.plot(df_processed["new_cases_weekly"], color="red")
+# plt.show
 
 
-
-
-##%%--------------------------------------------------------------------------------
+#%%--------------------------------------------------------------------------------
 # DATA VIZ (EXPLORATION)
 #----------------------------------------------------------------------------------
+IMAGES_PATH_EXPLORATION = IMAGE_PATH + "/00-Data-Exploration/"
+START_DATE_EXPLORATION = "2020-01-01"
+PRE_COVID_START = "2018-01-01"
+PRE_COVID_END = "2020-01-01"
 
 #TODO: save vizualisations to csv
 importlib.reload(data_model)
@@ -119,24 +136,26 @@ importlib.reload(data_model)
 df = data_model.Data(data=df_processed)
 ##%%
 #df.print_head()
-df.plot_seasonal(plot_type='daily', col_name='count')
-df.plot_seasonal(plot_type='weekly', col_name='count')
+df[START_DATE_EXPLORATION:].plot_seasonal(plot_type='daily', col_name='use_transfused', fig_location=IMAGES_PATH_EXPLORATION)
+df[START_DATE_EXPLORATION:].plot_seasonal(plot_type='weekly', col_name='use_transfused')
 
 
 ##%%
 #Boxplots
-df.plot_boxplots(col_name='count')
-df.plot_seasonal_subseries(col_name='count') #NOTE: i think it works, but not enough dummy data.
+df[START_DATE_EXPLORATION:].plot_boxplots(col_name='use_transfused')
+df[START_DATE_EXPLORATION:].plot_seasonal_subseries(col_name='use_transfused') #NOTE: i think it works, but not enough dummy data.
 #TODO: check if seasonal subseries plot works with multi-year data
 
 
 ##%%
 #Decompose
-df.decompose_one(col_name='count')
-#df.decompose_all("count")
+df[PRE_COVID_START:PRE_COVID_END].decompose_one(col_name='use_transfused')
+
+
+#df.decompose_all("use_transfused")
 
 # mulitple decomposition (daily + weekly)
-df.multiple_decompose(col_name="count", periods=[7, 365])
+df[PRE_COVID_START:PRE_COVID_END].multiple_decompose(col_name="use_transfused", periods=[7, 365])
 
 
 
@@ -145,7 +164,7 @@ df.multiple_decompose(col_name="count", periods=[7, 365])
 
 
 
-df[pd.to_datetime("2024-01-01"):pd.to_datetime("2024-12-31")].plot_daily_heatmap(col_name='count')
+df[pd.to_datetime("2024-01-01"):pd.to_datetime("2024-12-31")].plot_daily_heatmap(col_name='use_transfused')
 
 
 #%% Visualize counts for all plots (as of now only for those starting with 901AN) on top of each other, so that
@@ -160,13 +179,34 @@ for ward in wards:
     if str(ward).startswith("901AN"):
         sel_wards.append(ward)
         ax[i].plot(df[f"PAT_WARD_{ward}"], label=ward, linewidth=0.15)
-        #ax[i].legend(loc="upper right")
+        # ax[i].set_title(str(ward))
+        ax[i].legend(loc="upper right", prop={"size":6}, frameon=False, framealpha=0.5)
         ax[i].set_yticklabels([])
         i = i+1
         
 print(len(sel_wards))
 print(sel_wards)
+plt.savefig(fname="/".join([IMAGES_PATH_EXPLORATION + "show_inconsistency_wards"]))
 plt.show()
+
+#%%
+# Get unique Letter-combinations (i guess top-wards) from all wards:
+import re
+unique_wards = df_clean["PAT_WARD"].unique()
+
+pattern = re.compile(r'\d+([A-Za-z]+)\d+')  # number + letters + number
+
+ward_results = set()  # only unique strings
+
+for s in unique_wards:
+    match = pattern.search(str(s))
+    if match:
+        ward_results.add(match.group(1))  # =letters
+
+print(unique_wards)
+print(len(unique_wards))
+print(ward_results)
+print(len(ward_results))
 
 #%%--------------------------------------------------------------------------------
 # STATIONARITY -- Check for Stat./Make stationarys
@@ -197,19 +237,19 @@ num_differencing = 2
 i = 1
 df_diff = df_processed.copy()
 
-df_diff["count"].plot(lw=0.05)
+df_diff["use_transfused"].plot(lw=0.05)
 
-plot_acf(df_diff["count"], title="No differentiation")
-plot_pacf(df_diff["count"], title="No differentiation")
+plot_acf(df_diff["use_transfused"], title="No differentiation")
+plot_pacf(df_diff["use_transfused"], title="No differentiation")
 
 #ADF -- Augmented dickey-fuller test
-adf_result_diff = adfuller(df_diff["count"][1:], autolag="AIC") #default
-adf_result_diff2 = adfuller(df_diff["count"][1:], autolag="BIC")
-adf_result = adfuller(df["count"], autolag="AIC") #default
-adf_result2 = adfuller(df["count"], autolag="BIC")
-adfuller(df["count"])
-plt.plot(df["count"])
-plt.plot(df_diff["count"])
+adf_result_diff = adfuller(df_diff["use_transfused"][1:], autolag="AIC") #default
+adf_result_diff2 = adfuller(df_diff["use_transfused"][1:], autolag="BIC")
+adf_result = adfuller(df["use_transfused"], autolag="AIC") #default
+adf_result2 = adfuller(df["use_transfused"], autolag="BIC")
+adfuller(df["use_transfused"])
+plt.plot(df["use_transfused"])
+plt.plot(df_diff["use_transfused"])
 
 #i think i can reject the H0 in both cases (df and df_diff), for df test staticstics is -11.49, far below 
 #critical values of 1%, 5%, 10%, same  for df_diff with -21.07. therefore i reject H0 (data is 
@@ -221,9 +261,9 @@ plt.plot(df_diff["count"])
 
 
 #KPSS
-kpss_result_diff = kpss(df_diff["count"][1:])
-kpss_result = kpss(df["count"])
-kpss_result = kpss(df["count"])
+kpss_result_diff = kpss(df_diff["use_transfused"][1:])
+kpss_result = kpss(df["use_transfused"])
+kpss_result = kpss(df["use_transfused"])
 
 #kpss is one-sided test, if test statistics is greater than critical value, then H0 is rejected. 
 # H0 for KPSS is that ts is stationary, H1 ts is NOT stationary.
@@ -241,16 +281,16 @@ kpss_result = kpss(df["count"])
 print(adf_result[0])
 print(f"No differencing: \nadf: {adf_result[0]}\np-value: {adf_result[1]}\ncritical vals: {adf_result[4]}")
 while i <= num_differencing:
-    df_diff["count"] = df_diff["count"].diff()
+    df_diff["use_transfused"] = df_diff["use_transfused"].diff()
 
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
-    df_diff["count"].plot(ax=ax1, lw=0.05)
-    plot_acf(df_diff["count"].dropna(), ax=ax2)
-    plot_pacf(df_diff["count"].dropna(), ax=ax3)
+    df_diff["use_transfused"].plot(ax=ax1, lw=0.05)
+    plot_acf(df_diff["use_transfused"].dropna(), ax=ax2)
+    plot_pacf(df_diff["use_transfused"].dropna(), ax=ax3)
     fig.suptitle(f"differentiated {i}x")
     fig.show()
 
-    adf_result = adfuller(df_diff["count"].dropna())
+    adf_result = adfuller(df_diff["use_transfused"].dropna())
     print(f"No differencing: \nadf: {adf_result[0]}\np-value: {adf_result[1]}\ncritical vals: {adf_result[4]}")
 
 
@@ -263,17 +303,17 @@ period = 365
 i = 1
 df_diff = df_processed.copy()
 
-df_diff["count"].plot(lw=0.05)
-plot_acf(df_diff["count"], title="No differentiation")
-plot_pacf(df_diff["count"], title="No differentiation")
+df_diff["use_transfused"].plot(lw=0.05)
+plot_acf(df_diff["use_transfused"], title="No differentiation")
+plot_pacf(df_diff["use_transfused"], title="No differentiation")
 
 while i <= num_differencing:
-    df_diff["count"] = df_diff["count"].diff(periods=period)
+    df_diff["use_transfused"] = df_diff["use_transfused"].diff(periods=period)
 
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
-    df_diff["count"].plot(ax=ax1, lw=0.05)
-    plot_acf(df_diff["count"].dropna(), ax=ax2)
-    plot_pacf(df_diff["count"].dropna(), ax=ax3)
+    df_diff["use_transfused"].plot(ax=ax1, lw=0.05)
+    plot_acf(df_diff["use_transfused"].dropna(), ax=ax2)
+    plot_pacf(df_diff["use_transfused"].dropna(), ax=ax3)
     fig.suptitle(f"differentiated {i}x")
     fig.show()
     i += 1
@@ -287,6 +327,10 @@ while i <= num_differencing:
 
 #TODO: add multiple runs, to test for different parameters
 #all of the above could be grouped into sarima.run() (if certain stuff is set up before, like vals for params and split!)
+#TODO: add parameter grid, like p = 0-7, q=0, d=1-2 (for example), and then try all combinations of these params.
+#TODO: Add simple forecasts: naive, naive seasonal, fixed line (like its now) as forecasts for comparison.
+#TODO: add CI to plots? (Only one day stepwise ahead).
+#TODO: change color scheme + x axis texts for plot_stepwise_forecast_errors
 #TODO: save data to csv
 #TODO: load data from csv
 
@@ -304,19 +348,19 @@ arima = model.ModelArima(df)
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-arima.set_validation_rolling_window(train_percent=0.980, test_len=14, start_date=config.DEV_START_DATE) #TODO: change date/remove it
+arima.set_validation_rolling_window(train_percent=0.99, test_len=10, start_date=config.DEV_START_DATE) #TODO: change date/remove it
 
-arima.set_model_parameters(1, 1, 1) #7,1,1, #TODO: add hyperparam grid
-arima.model_run(col="count")
+arima.set_model_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
+arima.model_run(col="use_transfused")
 
 #Try out stepwise error measurements (now only mae):
-arima.plot_stepwise() #forecast
-arima.plot_stepwise(df=arima.stepwise_forecast_difference, comparison=False) #forecast difference
+arima.plot_stepwise(plot_type="forecast") #forecast
+arima.plot_stepwise(df=arima.stepwise_forecast_difference, plot_type="difference", comparison=False) #forecast difference
 arima.plot_stepwise_forecast_errors()
 
 
 #%%
-# SARIMA
+# SARIMAX
 #----------------------------------------------------------------------------------
 
 
@@ -331,20 +375,72 @@ sarima = model.ModelSarima(df)
 sarima.set_validation_rolling_window(train_percent=0.9800, test_len=14, start_date=config.DEV_START_DATE) #TODO: change date/remove it
 
 sarima.set_model_parameters(1, 1, 1) #7,1,1, #TODO: add hyperparam grid
-sarima.model_run(col="count")#, exog=["PAT_BG_0", "PAT_BG_A", "PAT_BG_AB", "PAT_BG_B"])
+sarima.model_run(col="use_transfused")#, exog=["PAT_BG_0", "PAT_BG_A", "PAT_BG_AB", "PAT_BG_B"])
 
 #Try out stepwise error measurements (now only mae):
-sarima.plot_stepwise() #forecast
-sarima.plot_stepwise(df=sarima.stepwise_forecast_difference, comparison=False) #forecast difference
+sarima.plot_stepwise(plot_type="forecast") #forecast
+sarima.plot_stepwise(df=sarima.stepwise_forecast_difference, comparison=False, plot_type="forecast difference") #forecast difference
 sarima.plot_stepwise_forecast_errors()
 
 
 
+#%% 
+# LSTM
+#----------------------------------------------------------------------------------
 
 
+#%% 
+# PROPHET
+#----------------------------------------------------------------------------------
+
+from prophet import Prophet
+
+start_date = pd.to_datetime("2020-01-01")
+split_date = pd.to_datetime("2023-12-31")
+end_date = pd.to_datetime("2024-12-31")
+
+pred_col = "use_transfused"
+regressor_cols = ['EC_BG_0', 'EC_BG_A', 'EC_BG_AB', 'EC_BG_B', 'EC_RH_Rh_negative',
+       'EC_RH_Rh_positive', 'EC_TYPE_EKF', 'EC_TYPE_EKFX', 'EC_TYPE_Other',
+       'PAT_BG_0', 'use_discarded', 'use_expired', 'use_transfused']
+sel_cols = [pred_col] + regressor_cols
 
 
+train_df = df.loc[start_date:split_date, sel_cols]
+test_df = df.loc[split_date:end_date, sel_cols]
 
+
+df.info()
+train_df.info()
+test_df.info()
+
+
+#%%
+#try to run model (Prophet)
+prophet_train = (
+    train_df[pred_col]
+    .reset_index()
+    .rename(columns={"date":"ds", "use_transfused":"y"})
+    )
+
+prophet_train.info()
+print(prophet_train.head())
+
+#%%
+m = Prophet(weekly_seasonality=True, interval_width=0.95)
+m.add_country_holidays(country_name="Austria")
+
+m.fit(prophet_train)
+future_dates = m.make_future_dataframe(periods=365, freq="D")
+
+fc = m.predict(future_dates)
+#%%
+m.plot(fc, uncertainty=True)
+
+fc.head()
+#.loc["2024-01-01":"2024-03-01"]
+
+# m.add_regressor()
 
 
 
@@ -506,10 +602,10 @@ df.plot_seasonal_subseries(col_name='count') #NOTE: i think it works, but not en
 #%%
 #Decompose
 df.decompose_one(col_name='count')
-#df.decompose_all("count")
+#df.decompose_all("use_transfused")
 
 # mulitple decomposition (daily + weekly)
-df.multiple_decompose(col_name="count", periods=[24, 24*7])
+df.multiple_decompose(col_name="use_transfused", periods=[24, 24*7])
 
 
 
@@ -564,59 +660,59 @@ print(vie_holidays.is_working_day('2005-12-25'))
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.tsa.stattools import adfuller
 
-plot_acf(df["count"])
+plot_acf(df["use_transfused"])
 #%% Detrend ______________________________________________________________________
 f = plt.figure()
 ax1 = f.add_subplot(121)
 ax1.set_title("No differencing")
-ax1.plot(df["count"])
+ax1.plot(df["use_transfused"])
 
 ax2 = f.add_subplot(122)
-plot_acf(df["count"].dropna(), ax=ax2)
+plot_acf(df["use_transfused"].dropna(), ax=ax2)
 plt.show()
 
 
 f = plt.figure()
 ax1 = f.add_subplot(121)
 ax1.set_title("1st order differencing")
-ax1.plot(df["count"].diff())
+ax1.plot(df["use_transfused"].diff())
 
 ax2 = f.add_subplot(122)
-plot_acf(df["count"].diff().dropna(), ax=ax2)
+plot_acf(df["use_transfused"].diff().dropna(), ax=ax2)
 plt.show()
 
 
 f = plt.figure()
 ax1 = f.add_subplot(121)
 ax1.set_title("2nd order differencing")
-ax1.plot(df["count"].diff().diff())
+ax1.plot(df["use_transfused"].diff().diff())
 
 ax2 = f.add_subplot(122)
-plot_acf(df["count"].diff().diff().dropna(), ax=ax2)
+plot_acf(df["use_transfused"].diff().diff().dropna(), ax=ax2)
 plt.show()
 
 
 f = plt.figure()
 ax1 = f.add_subplot(121)
 ax1.set_title("3rd order differencing")
-ax1.plot(df["count"].diff().diff().diff())
+ax1.plot(df["use_transfused"].diff().diff().diff())
 
 ax2 = f.add_subplot(122)
-plot_acf(df["count"].diff().diff().diff().dropna(), ax=ax2)
+plot_acf(df["use_transfused"].diff().diff().diff().dropna(), ax=ax2)
 plt.show()
 
 
 #%% Dickey-Fuller Test
-res = adfuller(df["count"].dropna())
+res = adfuller(df["use_transfused"].dropna())
 print("p-value: ", res[1])
 
-res = adfuller(df["count"].diff().dropna())
+res = adfuller(df["use_transfused"].diff().dropna())
 print("p-value: ", res[1])
 
-res = adfuller(df["count"].diff().diff().dropna())
+res = adfuller(df["use_transfused"].diff().diff().dropna())
 print("p-value: ", res[1])
 
-res = adfuller(df["count"].diff().diff().diff().dropna())
+res = adfuller(df["use_transfused"].diff().diff().diff().dropna())
 print("p-value: ", res[1])
 
 # Results:
@@ -637,30 +733,30 @@ from statsmodels.graphics.tsaplots import plot_pacf
 f = plt.figure()
 ax1 = f.add_subplot(121)
 ax1.set_title("No differencing")
-ax1.plot(df["count"])
+ax1.plot(df["use_transfused"])
 
 ax2 = f.add_subplot(122)
-plot_pacf(df["count"].dropna(), ax=ax2)
+plot_pacf(df["use_transfused"].dropna(), ax=ax2)
 plt.show()
 
 
 f = plt.figure()
 ax1 = f.add_subplot(121)
 ax1.set_title("1st order differencing")
-ax1.plot(df["count"].diff())
+ax1.plot(df["use_transfused"].diff())
 
 ax2 = f.add_subplot(122)
-plot_pacf(df["count"].diff().dropna(), ax=ax2)
+plot_pacf(df["use_transfused"].diff().dropna(), ax=ax2)
 plt.show()
 
 
 f = plt.figure()
 ax1 = f.add_subplot(121)
 ax1.set_title("2nd order differencing")
-ax1.plot(df["count"].diff().diff())
+ax1.plot(df["use_transfused"].diff().diff())
 
 ax2 = f.add_subplot(122)
-plot_pacf(df["count"].diff().diff().dropna(), ax=ax2)
+plot_pacf(df["use_transfused"].diff().diff().dropna(), ax=ax2)
 plt.show()
 
 #In the pacf plot, we can see the first lag to be most significant.
@@ -675,7 +771,7 @@ plt.show()
 #%% Fit arima model
 from statsmodels.tsa.arima.model import ARIMA
 
-arima_model = ARIMA(df["count"], order=(1,1,2))
+arima_model = ARIMA(df["use_transfused"], order=(1,1,2))
 model = arima_model.fit()
 print(model.summary())
 
@@ -684,14 +780,14 @@ from statsmodels.graphics.tsaplots import plot_predict
 
 #Method 1
 fig, ax = plt.subplots()
-ax = df["count"].plot(ax=ax)
+ax = df["use_transfused"].plot(ax=ax)
 plot_predict(model, ax=ax)
 plt.show()
 
 #Method 2
 pred = model.predict(dynamic=False)
 plt.plot(pred)
-plt.plot(df["count"])
+plt.plot(df["use_transfused"])
 
 
 #%% SPLIT into training and test data
@@ -708,21 +804,21 @@ def get_split_rows(data, perc=0.8):
 split_n_rows = get_split_rows(df)
 training_set = get_first_percent_rows(df[:split_n_rows[0]])
 
-arima_model = ARIMA(training_set["count"], order=(1,1,2))
+arima_model = ARIMA(training_set["use_transfused"], order=(1,1,2))
 model = arima_model.fit()
 print(model.summary())
 
 # plot
 from statsmodels.graphics.tsaplots import plot_predict
 fig, ax = plt.subplots()
-ax = df["count"].plot(ax=ax)
+ax = df["use_transfused"].plot(ax=ax)
 plot_predict(model, ax=ax)
 plt.show()
 
 #%% Run prediction on test set:
 
-y_pred = pd.Series(model.forecast(split_n_rows[1])[0], index=df["count"][split_n_rows[0]:].index)
-y_true = df["count"][split_n_rows[0]]
+y_pred = pd.Series(model.forecast(split_n_rows[1])[0], index=df["use_transfused"][split_n_rows[0]:].index)
+y_true = df["use_transfused"][split_n_rows[0]]
 
 print(np.array(y_pred).astype(np.uint8))
 print(np.array(y_true))
@@ -733,7 +829,7 @@ from sklearn.metrics import mean_squared_error
 from math import sqrt
 
 # Split in train+test:
-series = df["count"]
+series = df["use_transfused"]
 print(series)
 #%%
 # series.index = series.index.to_period('D')

@@ -75,7 +75,7 @@ class Data(pd.DataFrame):
         ax[1].set_xlabel('Month', fontsize = 16, fontdict=dict(weight='bold'))
         ax[1].set_ylabel(col_name, fontsize = 16, fontdict=dict(weight='bold'))
 
-    def plot_seasonal(self, plot_type: list[str], col_name: str):
+    def plot_seasonal(self, plot_type: list[str], col_name: str, fig_location=None):
         #seasonal plot (days of week, week of year, years)
         # 'column': str name of column to plot. Column values must be float or integer
 
@@ -85,6 +85,8 @@ class Data(pd.DataFrame):
         
         #drop all except 'date' and column
         series = self.data[col_name].to_frame()
+
+
         # df = self.data[["date", column]]
 
         #Get data depending on 'plot_type'
@@ -116,7 +118,6 @@ class Data(pd.DataFrame):
             xlabel = 'Week number'
             xticks_labels = [str(week) for week in range(1,53)]
             title = 'Weekly'
-
             #Resample weekly:
             df = series.resample('W').sum()
             df = df.reset_index()
@@ -130,13 +131,17 @@ class Data(pd.DataFrame):
         #Settings for plot:
         color_palette = sns.color_palette("mako", n_colors=60)
 
+        #Get min/max dates for title
+        min_date = pd.to_datetime(df['date'].min()).date()
+        max_date = pd.to_datetime(df['date'].max()).date()
+
         #Plotting:
         ax = sns.lineplot(x=x, y=col_name, data=df, hue=ref_frame_str, errorbar=('ci', False), palette=color_palette, linewidth=0.75)
-        ax.set_title(f'{title} seasonality plot')
+        ax.set_title(f'{title} seasonality plot: {min_date} to {max_date}')
         ax.set_xlabel(xlabel)
         ax.set_ylabel('value')
         ax.set_xticks(ticks=range(len(xticks_labels)), labels=xticks_labels)
-        ax.legend(title=plot_type, loc='upper right', bbox_to_anchor=(1, 1))
+        # ax.legend(title=plot_type, loc='upper right', bbox_to_anchor=(1, 1))
 
         #if more than 12 xticks, show only every third label
         if len(ax.get_xticklabels()) > 12:
@@ -149,6 +154,9 @@ class Data(pd.DataFrame):
         ax.legend([],[], frameon=False)
         ax.grid(True)
         plt.tight_layout()
+        if fig_location:
+            plt.savefig(fname="/".join([fig_location, "_" + plot_type]))
+
         plt.show()
 
     def plot_seasonal_subseries(self, col_name: str):
@@ -222,6 +230,16 @@ class Data(pd.DataFrame):
         result.plot()
         plt.show()
 
+        #zoomed in seasonality subplot:
+        result.seasonal.plot(figsize=(16,8))
+        plt.title("Seasonal part zoomed in")
+        plt.show()
+        
+        #zoomed in residual subplot:
+        result.resid.plot(figsize=(16,8))
+        plt.title("Residuals part zoomed in")
+        plt.show()
+
     def decompose_all(self, model: str='additive', period: int=7):
         #maybe function to decompose multiple/all columns? or just one fct, 
         # where it iterates over models (and i can pass df.columns minus date)?
@@ -249,6 +267,16 @@ class Data(pd.DataFrame):
         res = mstl.fit()
 
         res.plot()
+        plt.show()
+
+        #zoomed in seasonality subplot:
+        res.seasonal.plot(figsize=(16,8))
+        plt.title("Seasonal part zoomed in")
+        plt.show()
+        
+        #zoomed in residual subplot:
+        res.resid.plot(figsize=(16,8))
+        plt.title("Residuals part zoomed in")
         plt.show()
 
         #return mstl

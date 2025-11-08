@@ -15,28 +15,114 @@ def line_plot(data):
     pass
 
 
-def seasonal_plot(data, periods: list[str]):
-    """
-    periods = periods to make seasonal plots for (e.g. week, months)
-    can be "W", "M", "Y" 
-    """
-    fig, ax = plt.subplots(ncols=1, nrows=len(periods))
+def seasonal_plot(data, plot_type: list[str], col_name = "count"): #New: col_name (from data_model.plot_seasonal)
+    #Old version
+    # """
+    # periods = periods to make seasonal plots for (e.g. week, months)
+    # can be "W", "M", "Y" 
+    # """
+    # fig, ax = plt.subplots(ncols=1, nrows=len(periods))
 
-    data['day_of_week'] = data['date'].dt.dayofweek
-    data['week'] = data['date'].dt.isocalendar().week
-    data['week_str'] = data['week'].astype(str)
-    data['month'] = data['date'].dt.isocalendar().month
+    # data['day_of_week'] = data['date'].dt.dayofweek
+    # data['week'] = data['date'].dt.isocalendar().week
+    # data['week_str'] = data['week'].astype(str)
+    # data['month'] = data['date'].dt.isocalendar().month
 
-    for period in periods:
-        pass
-
-
-
+    # for period in periods:
+    #     pass
     
-    #TODO
-    fig, ax = plt.subplots()
-    ax.plot(label = ["year"])
-    pass
+    # #TODO
+    # fig, ax = plt.subplots()
+    # ax.plot(label = ["year"])
+    # pass
+
+
+
+    #New version, copied from data_model.plot_seasonal:
+
+    #seasonal plot (days of week, week of year, years)
+    # 'column': str name of column to plot. Column values must be float or integer
+
+    accepted_types = ["daily", "weekly"]
+    if plot_type not in accepted_types:
+        raise ValueError("'plot_type' must be 'daily' or 'weekly'")
+    
+    #drop all except 'date' and column
+    series = data[col_name].to_frame()
+
+    # df = data[["date", column]]
+
+    #Get data depending on 'plot_type'
+    # Days in a week
+    if plot_type == 'daily':
+        #Set plotting & naming values:      
+        x = 'day_of_week'
+        ref_frame = 'week' #comparison period; name of column
+        ref_frame_str = 'week_str' #comparison period string;  name of column
+        xlabel = 'Day of week'
+        xticks_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        title = 'Daily'
+        print(type(series))
+        print(series.head())
+        #Resample daily:
+        df = series[col_name].resample("D").sum()
+        df = df.reset_index()
+        print(df)
+        #Add new columns:
+        df[x] = df['date'].dt.day_of_week
+        df[ref_frame] = df['date'].dt.isocalendar().week #need to make it string later
+        df[ref_frame_str] = df[ref_frame].astype(str) #need string for 'hue'
+
+
+    #Weeks in year
+    elif plot_type == 'weekly':
+        #Set plotting & naming values:
+        x = 'week_of_year'
+        ref_frame = 'year' #comparison period; name of column
+        ref_frame_str = 'year_str' #comparison period string;  name of column
+        xlabel = 'Week number'
+        xticks_labels = [str(week) for week in range(1,53)]
+        title = 'Weekly'
+
+        #Resample weekly:
+        df = series.resample('W').sum()
+        df = df.reset_index()
+        #Add new columns:
+        df[x] = df['date'].dt.isocalendar().week
+        df[ref_frame] = df['date'].dt.year
+        df[ref_frame_str] = df[ref_frame].astype('str')
+    # NOTE: could add daily in year, daily in month
+
+    #Settings for plot:
+    num_of_lines = df[ref_frame_str].nunique()
+    color_palette = sns.color_palette("mako", n_colors=num_of_lines)
+    color_palette_reversed = color_palette[::-1]
+
+    #Plotting:
+    ax = sns.lineplot(x=x, y=col_name, data=df, hue=ref_frame_str, errorbar=('ci', False), palette=color_palette_reversed, linewidth=0.75)
+    ax.set_title(f'{title} seasonality plot for {col_name}')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('value')
+    ax.set_xticks(ticks=range(len(xticks_labels)), labels=xticks_labels)
+    ax.legend(title=plot_type, loc='upper right', bbox_to_anchor=(1, 1))
+
+    if plot_type == 'daily':
+        ax.legend([],[], frameon=False)
+
+
+
+    #if more than 12 xticks, show only every third label
+    if len(ax.get_xticklabels()) > 12:
+        for i, label in enumerate(ax.xaxis.get_major_ticks()):
+            if i % 3 != 0:
+                label.set_visible(False)
+                
+
+            
+    ax.grid(True)
+    plt.tight_layout()
+    plt.show()
+
 
 
 def heatmap(data):
@@ -95,13 +181,31 @@ def decompose_one(df, model, column, period=7):
     result.plot()
     plt.show()
 
+    #zoomed in seasonality subplot:
+    result.seasonal.plot(figsize=(16,8))
+    plt.show()
+    
+    #zoomed in residual subplot:
+    result.resid.plot(figsize=(16,8))
+    plt.show()
+
 
 def multiple_decompose(df, col: str, periods: list):
     # col = col to decompose, i.e. y, for example "count"
     mstl = MSTL(df[col], periods=periods)
     res = mstl.fit()
 
-    res.plot()
+    # res.plot()
+    fig = res.plot()
+    fig.autofmt_xdate()
+    axes = fig.get_axes()
+    for ax in axes:
+        for line in ax.get_lines():
+            line.set_linewidth(0.5)
+            if line.get_marker() not in (None, 'None'):
+                line.set_markersize(1)
+        # for dot in ax.collections:
+        #     dot.set_sizes([1])
     plt.show()
 
     return mstl
@@ -142,6 +246,9 @@ def plot_patient_wards(df: pd.DataFrame, n: int, save_figs=SAVE_FIGS, filename="
         ax.plot(df_filtered['PAT_WARD'])
         ax.set_xlabel('date')
         ax.set_title(ward)
+        if save_figs:
+            fig.savefig(fname="/".join([location, "02-" + filename + "_" + ward]))
+
         fig.show()
 
         #Old verions: delete
@@ -149,6 +256,7 @@ def plot_patient_wards(df: pd.DataFrame, n: int, save_figs=SAVE_FIGS, filename="
         # plt.title(ward)
         # plt.show()
 
-        if save_figs:
-            save_plots(fig=fig, filename_general=filename, filename_suffix=ward, location=location, foldername=foldername)
+        #TODO: save_figs is not done yet -- maybe scrap it altogether
+        # if save_figs:
+        #     save_plots(fig=fig, filename_general=filename, filename_suffix=ward, location=location, foldername=foldername)
 

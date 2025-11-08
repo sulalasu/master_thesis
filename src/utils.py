@@ -59,6 +59,7 @@ def sample_rows(df, n: int=90000):
 # GENERAL 
 #----------------------------------------------------------------------------------------------
 
+#TODO: save_figs is not done yet -- maybe scrap it altogether
 
 def save_plots(fig, filename_general: str, filename_suffix: str, location: str, foldername: str=""):
     """Function to save files to specified location, creating folder with subfolder of 
@@ -70,15 +71,20 @@ def save_plots(fig, filename_general: str, filename_suffix: str, location: str, 
         foldername (str): foldername to create addtional subfolder inside ./plots/00_subfolder/~
         If not specified, no new subfolder is created and files are stored in 'location'
     """
-    my_dir = Path(location)
+    # my_dir = Path(location)
 
-    #Create new subdirectory, if foldername is specified and not exists:
-    if foldername != "" and not my_dir.is_dir():
-        new_dir = Path.joinpath(my_dir, foldername)
-        new_dir.mkdir(parents=False, exist_ok=False)
-        print(f"Created new directory: {new_dir}")
+    # #TODO: super confusing with fname_general, fname_suffix, foldername/location.
+    # #--> simplify and think of usecases, i.e. put in non-existing, new folder or just pass complete path minus filename
+    # #Create new subdirectory, if foldername is specified and not exists:
+    # if foldername != "" and not my_dir.is_dir():
+    #     new_dir = Path.joinpath(my_dir, foldername)
+    #     new_dir.mkdir(parents=False, exist_ok=False)
+    #     print(f"Created new directory: {new_dir}")
+    #     flocation = "/".join(location, foldername, filename_general + filename_suffix) 
+    # else:
+    #     flocation = location + 
 
-    #Save plot:
-    fig.savefig()
+    # #Save plot:
+    # fig.savefig(fname=)
         
     

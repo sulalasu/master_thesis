@@ -144,6 +144,8 @@ class Model:
         """
         if not start_date:
             start_date = self.data.index.min()
+        elif pd.to_datetime(start_date) < pd.to_datetime(self.data.index.min()):
+            raise ValueError("'start_date' must be within data")
         else:
             start_date = pd.to_datetime(start_date)
 
@@ -326,7 +328,7 @@ class Model:
 
 
     #TODO: implement selection for days to plot ahead
-    def plot_stepwise(self, df: pd.DataFrame=None, comparison=True, comparison_col="count", days=None):
+    def plot_stepwise(self, plot_type: str, df: pd.DataFrame=None, comparison=True, comparison_col="count", days=None):
         """Plot the stepwise predictions or difference against actual/true values.
         i.e. plot e.g. one-day-ahead prediction against test set, two-day-ahead, etc.
         Defaults to plot stepwise_forecasts data, but can also be used for stepwise_forecast_difference 
@@ -343,12 +345,17 @@ class Model:
 
         #original_data = 
         plt.figure(figsize=(14,7))
+        if plot_type == "forecast difference":
+            plt.axhline(y= 0, linestyle = "dashed", color="lightgrey")
+    
 
         if comparison == True:
             plt.plot(self.data[plot_start:plot_end][comparison_col], label="original data")
 
         for col in df.columns:
             plt.plot(df[col], label=col, color=next(colors))
+
+        plt.title(f"Stepwise {plot_type}; Model: {self.class_name}")
         plt.legend()
         plt.show()
 
@@ -363,15 +370,19 @@ class Model:
             if col == "MSE":
                 continue
             plt.plot(self.stepwise_forecast_errors[col], label=col, color=next(colors))
+        plt.tight_layout()
+        plt.title(f"Forecast errors; Model: {self.class_name}")
         plt.legend()
         plt.show()
 
 
-    def add_stepwise_errors(self):
+    def add_stepwise_errors(self, col_pred: str="count"):
         """Calculate stepwise errors for stepwise forecasts and adds it to model variable. 
         That means that for x days ahead, for all predicted values, the supplied error is calculated.
         Currently Supported error metrics: MAE, MAPE, MedAE (Median absolute error), 
         MaxError, RMSE, MSE
+        Args:
+            col_pred (str, optional): Column name of original (test) data which is forecast, to compare preiction with
         """
         #initialize empty df with structure like stepwise_forecasts (cols, indices, no content)
         forecast_steps = self.stepwise_forecasts.columns
@@ -385,7 +396,7 @@ class Model:
             max_date = self.stepwise_forecasts[col].last_valid_index()
 
             y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
-            y_true = self.data.loc[min_date:max_date, "count"]
+            y_true = self.data.loc[min_date:max_date, col_pred]
         
             self.stepwise_forecast_errors.loc[col, "ME"] = np.median(y_pred - y_true) #median error -- shows bias (positive or negative)
             self.stepwise_forecast_errors.loc[col, "MAE"] = metrics.mean_absolute_error(y_pred=y_pred, y_true=y_true)
@@ -395,7 +406,7 @@ class Model:
             self.stepwise_forecast_errors.loc[col, "RMSE"] = metrics.root_mean_squared_error(y_pred=y_pred, y_true=y_true)
             self.stepwise_forecast_errors.loc[col, "MaxError"] = metrics.max_error(y_pred=y_pred, y_true=y_true)
 
-    def add_stepwise_difference(self, col: str="count"):
+    def add_stepwise_difference(self, col_pred: str="count"):
         """Get a df with the difference between the stepwise forecasted values and 
         the actual values. By default it subtracts 'count' from the daily stepwise
         forecasted values and stores them in a new df called 'stepwise_forecast_difference'.
@@ -404,7 +415,7 @@ class Model:
             col (str, optional): Column name that should be subtracted from the forecasted values. 
             Defaults to "count".
         """
-        y_true = self.data[col].loc[self.stepwise_forecasts.index]
+        y_true = self.data[col_pred].loc[self.stepwise_forecasts.index]
         self.stepwise_forecast_difference = self.stepwise_forecasts.sub(y_true, axis=0)
 
 
@@ -476,7 +487,7 @@ class Model:
 
 # ARIMA
 class ModelArima(Model):
-
+    class_name = "Arima"
 
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
         super().__init__(data)
@@ -492,6 +503,8 @@ class ModelArima(Model):
         self.p = p
         self.d = d
         self.q = q
+
+
 
     #composite function:
     def model_run(self, col: str="count", print_fit_summary=True, last_only=True, days=None):
@@ -519,8 +532,8 @@ class ModelArima(Model):
 
         #Get stepwise values:
         self.add_stepwise_forecasts()
-        self.add_stepwise_errors()
-        self.add_stepwise_difference() 
+        self.add_stepwise_errors(col_pred=col)
+        self.add_stepwise_difference(col_pred=col) 
 
 
 
@@ -590,6 +603,7 @@ class ModelArima(Model):
 
 # SARIMA
 class ModelSarima(Model):
+    class_name = "Arima"
 
 
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
@@ -641,8 +655,8 @@ class ModelSarima(Model):
 
         #Get stepwise values:
         self.add_stepwise_forecasts()
-        self.add_stepwise_errors()
-        self.add_stepwise_difference() 
+        self.add_stepwise_errors(col_pred=col)
+        self.add_stepwise_difference(col_pred=col) 
 
 
 

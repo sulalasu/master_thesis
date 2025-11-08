@@ -37,7 +37,7 @@ transfusion_status_map = {
 
         "AUS" : "discarded", # 'Ausgegeben'
         "Entsorgt" : "discarded",
-        
+
         "ABG" : "expired", # Abgelaufen == expired
         "Abgelaufen": "expired", 
         "expired" : "expired",
@@ -93,10 +93,18 @@ blood_group_map = {
 
 
 
+
+
 #EC type 
 # Values to keep, all other change to "Other"
 # (full bag, split bag etc) -- only two values in relevant amounts
 ec_type_keep = ["EKF", "EKFX"]
+
+
+# WARDs
+wards = {
+
+}
 
 
 
