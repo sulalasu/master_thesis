@@ -275,7 +275,7 @@ class Model:
             for step in range(1, self.validation_config["test_len"] + 1):
                 step_forecasts = pd.Series()
                 for pred in self.predictions:
-                    step_forecasts = pd.concat([step_forecasts, pred.predicted_mean.iloc[[step-1]]])
+                    step_forecasts = pd.concat([step_forecasts, pred["Prediction"].iloc[[step-1]]])
                 
                 step_forecasts.sort_index(inplace=True)
                 if step == 1:
@@ -364,7 +364,9 @@ class Model:
     def plot_stepwise_forecast_errors(self):
         #TODO: change colors to be more different. 
         # TODO: maybe add error names directly to lines instead of having a legend 
-        colors = iter(cm.rainbow(np.linspace(1, 0.6, len(self.stepwise_forecast_errors.columns))))
+        print(self.stepwise_forecast_errors.columns)
+        print(len(self.stepwise_forecast_errors.columns))
+        colors = iter(cm.gist_ncar(np.linspace(1, 0, len(self.stepwise_forecast_errors.columns))))
 
         for col in self.stepwise_forecast_errors.columns:
             if col == "MSE":
@@ -483,6 +485,57 @@ class Model:
 # Individual Models:
 #--------------------------------------------------------------------
     
+# Comparison Model
+# single value
+# naive/persistent (n-1)
+# mean
+# seasonal naive (n-7)
+#
+class ModelComparison(Model):
+    class_name = "Comparison"
+
+    def __init__(self, data, single_value: int):
+        super().__init__(data)
+        self.forecast_window = None
+        self.result = None #Dataframe
+
+        #individual comp. models (dataframes)
+        self.single_value = None
+        self.naive = None
+        self.mean = None
+        self.seasonal_naive = None
+
+
+    def set_forecast_window(self, days=14):
+        """This is for plotting purposes only. Since models have forecast
+        window, with days-ahead plotting/stats, i want to keep this 
+        model with the same window.
+
+        Args:
+            days (int, optional): Das ahead forecast. FOr plotting and stats. Defaults to 14.
+        """
+
+        self.forecast_window = days
+
+
+    def model_run(self):
+        #Run all comparison models
+        pass
+
+    def run_single_value(self):
+        pass
+
+    def run_naive(self):
+        pass
+
+    def run_mean(self):
+        pass
+
+    def run_seasonal_naive(self):
+        pass
+    
+    
+
 
 
 # ARIMA
@@ -528,7 +581,7 @@ class ModelArima(Model):
         self.fit()
         if print_fit_summary:
             self.print_fit_summary(last_only=last_only)
-        self.predict(days=days)
+        self.get_prediction(days=days)
 
         #Get stepwise values:
         self.add_stepwise_forecasts()
@@ -596,29 +649,57 @@ class ModelArima(Model):
             days = self.validation_config["test_len"]
 
         for fit in self.model_fits:
-            self.predictions.append(fit.get_forecast(steps=days))
+            self.predictions.append(fit
+                .get_forecast(steps=days)
+                .rename(columns={"predicted_mean":"Prediction"})
+            )
+
+    def get_prediction(self, days=None, alpha: int=0.05):
+        self.predictions = []
+
+        #iterate over both model_fits and validation_sets:
+        for fit, validation_set in zip(self.model_fits, self.validation_sets): #'fit' is the fitted model
+            test_start = validation_set[2]
+            test_end = validation_set[3]
+
+            self.predictions.append(fit
+                .get_prediction(start=test_start, end=test_end, dynamic=True)
+                .summary_frame(alpha=alpha)
+                .rename(columns={"mean":"Prediction"})
+            )
 
 
 
 
-# SARIMA
-class ModelSarima(Model):
+
+
+# SARIMAX
+class ModelSarimax(Model):
     class_name = "Arima"
 
 
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
         super().__init__(data)
+        #ARIMA part:
         self.p = None
         self.q = None
         self.d = None
+        #Seasonal part:
+        self.P = None
+        self.Q = None
+        self.D = None
+        self.m = None
+        #eXogenous part:
+        self.exog_cols = None
 
     #------------------------------------------------------------------------------------------------
     # Setters
     #------------------------------------------------------------------------------------------------
     
     def set_model_parameters(
-            self, p: int=1, d: int=1, q: int=1, P: int=1, D: int=1,
-            Q: int=1, m: int=7):
+            self, p: int=1, d: int=1, q: int=1, 
+            P: int=1, D: int=1, Q: int=1, m: int=7):
+        
         self.p = p
         self.d = d
         self.q = q
@@ -628,14 +709,37 @@ class ModelSarima(Model):
         self.Q = Q
         self.m = m
 
+       
+    def set_exogenous_vars(self, exog_cols: list):
+        """Set columns to use for exogenous variables with SARIMAX. 
+
+        Args:
+            exog_cols (list): List of strings containing column names for exog vars (in self.data)
+
+        Raises:
+            ValueError: If exog_cols list is empty. Doesnt check for data type.
+            ValueError: If a column from exog_cols is not present in 'df'
+        """
+
+        #Check df/exog_cols input for validity
+        if len(exog_cols) == 0:
+            raise ValueError("Need to pass col name present in 'df' to exog_cols")
+        else:
+            for col in exog_cols:
+                if col not in self.data.columns:
+                    raise ValueError(f"{col} not present df's columns: {self.data.columns}")
+                
+        self.exog_cols = exog_cols
+
+
 
     #composite function:
-    def model_run(self, exog: list=None, col: str="count", print_fit_summary=True, last_only=True, days=None):
+    def model_run(self, pred_col: str="count", print_fit_summary=True, last_only=True, days=None): #exog: list=None, 
         """Composite function that combines make_model, fit(), print_fit_summary(), predict(),
         add_stepwise_forecasts()
 
         Args:
-            col (str, optional): column to make model and run prediction for. 
+            pred_col (str, optional): column to make model and run prediction for. 
             Defaults to "count".
             print_fit_summary (bool, optional): If true, prints the summary for the fit().
             Defaults to True
@@ -647,29 +751,27 @@ class ModelSarima(Model):
             Defaults to None, which will then use abovementioned value. 
         """
 
-        self.make_model(col=col, exog=exog)
+        self.make_model(pred_col=pred_col)
         self.fit()
         if print_fit_summary:
             self.print_fit_summary(last_only=last_only)
-        self.predict(days=days)
+        self.get_prediction(days=days)
 
         #Get stepwise values:
         self.add_stepwise_forecasts()
-        self.add_stepwise_errors(col_pred=col)
-        self.add_stepwise_difference(col_pred=col) 
+        self.add_stepwise_errors(col_pred=pred_col)
+        self.add_stepwise_difference(col_pred=pred_col) 
 
 
 
-    def make_model(self, col: str, exog: list=None):
+    def make_model(self, pred_col: str):
         """
         create model with trainign data + (hyper)parameters
         
         Parameters
         ----------
-        col : string 
+        pred_col : string 
             columns (target) to use for for univariate forecasting 
-        exog : list of strings
-            column names of exogenous variables.
         """
         #Important!
         self.models = []
@@ -678,21 +780,24 @@ class ModelSarima(Model):
         # i think for validation, best option to have a list of lists with train_start, train_end, test_start, test_end
         # days (datetime), which i can cycle here (make_model, fit, print_fit_summary, predict), which is just
         # inplace filtering of df, so i dont have to store multiple dfs!
-        series = self.data[col]
+        series = self.data[pred_col]
         #TODO: !use SARIMAX instead of ARIMA!
+
         
-        if exog == None:
+        if self.exog_cols == None:
             for train_set in self.validation_sets:
                 self.models.append(SARIMAX(
                     endog=series[train_set[0] : train_set[1]], 
                     order=(self.p, self.d, self.q),
                     seasonal_order=(self.P, self.D, self.Q, self.m))) 
-        else:
-            exogenous = self.data[exog]
+                
+        elif self.exog_cols != None:
+            # exogenous = self.data[exog]
             for train_set in self.validation_sets:
                 self.models.append(SARIMAX(
                     endog=series[train_set[0] : train_set[1]], 
-                    exog=exogenous[train_set[0] : train_set[1]], 
+                    exog=self.data.loc[train_set[0]:train_set[1], self.exog_cols], 
+                    # exog=exogenous[train_set[0] : train_set[1]], 
                     order=(self.p, self.d, self.q),
                     seasonal_order=(self.P, self.D, self.Q, self.m))) 
 
@@ -732,6 +837,33 @@ class ModelSarima(Model):
         for fit in self.model_fits:
             self.predictions.append(fit.get_forecast(steps=days))
 
+
+    def get_prediction(self, days=None, alpha: int=0.05):
+        self.predictions = []
+
+        #iterate over both model_fits and validation_sets:
+        for fit, validation_set in zip(self.model_fits, self.validation_sets): #'fit' is the fitted model
+            test_start = validation_set[2]
+            test_end = validation_set[3]
+
+            exog_prediction = self.data.loc[test_start:test_end, self.exog_cols]
+
+            self.predictions.append(fit
+                .get_prediction(start=test_start, end=test_end, exog=exog_prediction, dynamic=True)
+                .summary_frame(alpha=alpha)
+                .rename(columns={"mean":"Prediction"})
+            )
+
+
+    
+
+
+    #------------------------------------------------------------------------------------------------
+    # Setters
+    #------------------------------------------------------------------------------------------------
+    
+    def print_params(self):
+        print(f"p,d,q: {self.p}, {self.d}, {self.q}\nP,D,Q,m: {self.P},{self.D},{self.Q}{self.m}\nExogenous columns: {self.exog_cols}")
 
 
 

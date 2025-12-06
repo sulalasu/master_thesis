@@ -65,12 +65,15 @@ def seasonal_plot(data, plot_type: list[str], col_name = "count"): #New: col_nam
         print(type(series))
         print(series.head())
         #Resample daily:
-        df = series[col_name].resample("D").sum()
-        df = df.reset_index()
+        df = series.resample("D").sum()
+        # df = series[col_name].resample("D").sum()
+        # df = df.reset_index()
         print(df)
         #Add new columns:
-        df[x] = df['date'].dt.day_of_week
-        df[ref_frame] = df['date'].dt.isocalendar().week #need to make it string later
+        df[x] = df.index.dayofweek
+        df[ref_frame] = df.index.isocalendar().week
+        # df[x] = df.index.day_of_week
+        # df[ref_frame] = df.index.isocalendar().week #need to make it string later
         df[ref_frame_str] = df[ref_frame].astype(str) #need string for 'hue'
 
 
@@ -86,10 +89,12 @@ def seasonal_plot(data, plot_type: list[str], col_name = "count"): #New: col_nam
 
         #Resample weekly:
         df = series.resample('W').sum()
-        df = df.reset_index()
+        # df = df.reset_index()
         #Add new columns:
-        df[x] = df['date'].dt.isocalendar().week
-        df[ref_frame] = df['date'].dt.year
+        df[x] = df.index.isocalendar().week
+        df[ref_frame] = df.index.year
+        # df[x] = df.index.isocalendar().week
+        # df[ref_frame] = df.index.year
         df[ref_frame_str] = df[ref_frame].astype('str')
     # NOTE: could add daily in year, daily in month
 

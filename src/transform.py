@@ -44,15 +44,18 @@ def transform_data(df,
         cols_to_sum.remove('date')
         df = aggregate_categorical_cols(df, cols_to_sum)
 
+
         #Total count of EC for that day (expired, transfused etc.)
         #df = add_daily_total(df)
 
-        df = add_working_days(df)
+        df = add_temporal_features(df)
 
 
         df = add_weather_data(df)
 
         df = add_influenza_data(df)
+
+
 
 
         #Save new file:
@@ -113,6 +116,7 @@ def combine_wards(df, ward_map_path="./data/00_external_data/wards_mapping.csv")
 
     Args:
         df (DataFrame): Main dataframe
+        ward_map_path (str): Location of csv file for mapping of wards
     """
 
     #Load necessary data
@@ -164,12 +168,47 @@ def combine_wards(df, ward_map_path="./data/00_external_data/wards_mapping.csv")
 
     return df
 
-def add_working_days(df):
 
-    holidays_aut = holidays.country_holidays(country="AT", subdiv="W", years=range(2020,2025), language="de")
-    # assignment
-    # df["is_workday"] = df["date"].apply(holidays_aut.is_working_day)
-    df["is_workday"] = df.index.to_series().apply(holidays_aut.is_working_day)
+
+def add_temporal_features(df):
+    """Adds temporal (some encoded) features to dataframe:
+    - Holidays (name, encoding)
+    - is workday (includes holidays as non-working days)
+    - day of the week, day of the year, year columns
+
+    Args:
+        df (dataframe): Dataframe with datetime index
+
+    Returns:
+        _type_: _description_
+    """
+
+    #Add workday + encoding
+    vie_holidays = holidays.country_holidays(country="AT", subdiv="W", years=range(2020,2025), language="de")
+    df["is_workday"] = df.index.to_series().apply(lambda x: vie_holidays.is_working_day(x)) #boolean
+    df["workday_enc"] = df["is_workday"].astype(int)
+
+    #Add additional temporal features (holiday name + encoding, day of year, day of week)
+    
+    #holiday name + encoding:
+    df["holiday"] = pd.Series(df.index).apply(lambda x: vie_holidays.get(x)).values
+    unique_holidays = df["holiday"].dropna().unique()
+    #create encoding map (NaN=0)
+    holiday_map = pd.DataFrame({
+        "holiday" : unique_holidays,
+        "holiday_enc" : range(1, len(unique_holidays)+1)
+    })
+    holiday_map = pd.concat([
+        pd.DataFrame({"holiday": [np.nan], "holiday_enc": [0]}), 
+        holiday_map],
+        ignore_index=True
+    )
+    df = pd.merge(df.reset_index(), holiday_map, how="left", on="holiday").set_index("date")
+
+    #Add day of the week, day of the year, year columns
+    df["day_of_week"] = df.index.dayofweek
+    df["day_of_year"] = df.index.dayofyear
+    df["year"] = df.index.year
 
     return df
 
@@ -209,11 +248,13 @@ def add_influenza_data(df, influenza_data_path="data/00_external_data/", filenam
     Returns:
         DataFrame: Returns dataframe with added interpolated influenza data
     """
-    #
+    
     influenza_interpolated_df = Path(influenza_data_path+filename+"-interpolated"+file_ending)
+
     if influenza_interpolated_df.is_file():
         influenza_df = pd.read_csv(influenza_data_path+filename+"-interpolated"+file_ending)
         influenza_df = influenza_df.set_index("date")
+        influenza_df.index = pd.to_datetime(influenza_df.index)
     else:
         influenza_file = Path(influenza_data_path+filename+file_ending)
         #interpolates & saves file
@@ -327,6 +368,7 @@ def interpolate_influenza_data(filepath, filename, file_ending, save_file=True):
     #Extend by one week (to interpolate last week which has no rows)
     new_index = pd.date_range(start=df.index[0], end=df.index[-1] + pd.Timedelta(days=6), freq='D')
     df = df.reindex(new_index)
+    df.index = pd.to_datetime(df.index)
 
     #forward fill new_cases weekly
     df["new_cases_weekly"] = df["new_cases_weekly"].ffill(limit=6)
@@ -334,6 +376,9 @@ def interpolate_influenza_data(filepath, filename, file_ending, save_file=True):
     df["new_cases_daily"] = df["new_cases_daily"].interpolate(method="linear", limit=6, limit_direction="forward").round()
     #fill rest of the rows with zero
     df = df.fillna(0)
+
+
+
     #save file
     if save_file:
         df.to_csv(filepath+filename+"-interpolated"+file_ending, index_label="date")

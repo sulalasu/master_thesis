@@ -27,7 +27,7 @@ IMAGE_PATH = "plots/2025_10_10-Plots_for_Meeting/"
 
 
 #%%--------------------------------------------------------------------------------
-# INPUT
+# MARK: INPUT
 #----------------------------------------------------------------------------------
 
 # Read Data
@@ -48,12 +48,13 @@ print(df_raw.columns)
 
 
 #%%--------------------------------------------------------------------------------
-# CLEANING 
+# MARK: CLEANING 
 #----------------------------------------------------------------------------------
 #Runs only if no file exists at. If not existing, saves df to new file
 #unify dates, columns etc. rename stuff
 IMAGES_PATH_EXPLORATION = IMAGE_PATH + "/00-Data-Exploration/"
-
+importlib.reload(clean)
+importlib.reload(config)
 df_clean = clean.clean_data(df_raw)
 # df_clean.sort_index(inplace=True)
 # #TODO: remove 5 lines:
@@ -67,7 +68,7 @@ df_clean = clean.clean_data(df_raw)
 clean.check_unique_values(df_clean.drop(["EC_ID_I_hash", "EC_ID_O_hash", "PAT_WARD"], axis=1))
 
 
-##%%
+#%%
 # Plot frequency counts for unique values in every column
 #TODO: move into viz.py
 for col_name, col in df_clean.items():
@@ -91,7 +92,8 @@ viz.plot_patient_wards(df_clean, n=500, save_figs=False, location=IMAGES_PATH_EX
 
 
 #%%--------------------------------------------------------------------------------
-# TRANSFORMING/PROCESSING
+# MARK: TRANSFORMING
+# MARK: PROCESSING
 #----------------------------------------------------------------------------------
 # make STATIONARY! (if all models need that, otherwise make it a member function)
 # splitting in test/training etc. here or as extra step/model step?
@@ -108,6 +110,27 @@ importlib.reload(transform)
 # make daily aggregations for categorical variables
 df_processed = transform.transform_data(df_clean)
 
+
+#%% #Plot seasonalities daily & weekly of processed df
+importlib.reload(viz)
+
+BG_RH_cols = ['EC_BG_RH_0_NB']#,
+    #    'EC_BG_RH_0_Rh_negative', 'EC_BG_RH_0_Rh_positive', 'EC_BG_RH_A_NB',
+    #    'EC_BG_RH_A_Rh_negative', 'EC_BG_RH_A_Rh_positive', 'EC_BG_RH_AB_NB',
+    #    'EC_BG_RH_AB_Rh_negative', 'EC_BG_RH_AB_Rh_positive', 'EC_BG_RH_B_NB',
+    #    'EC_BG_RH_B_Rh_negative', 'EC_BG_RH_B_Rh_positive', 'PAT_BG_RH_0_NB',
+    #    'PAT_BG_RH_0_Rh_negative', 'PAT_BG_RH_0_Rh_positive', 'PAT_BG_RH_A_NB',
+    #    'PAT_BG_RH_A_Rh_negative', 'PAT_BG_RH_A_Rh_positive', 'PAT_BG_RH_AB_NB',
+    #    'PAT_BG_RH_AB_Rh_negative', 'PAT_BG_RH_AB_Rh_positive',
+    #    'PAT_BG_RH_B_NB', 'PAT_BG_RH_B_Rh_negative', 'PAT_BG_RH_B_Rh_positive',
+    #    'PAT_BG_RH_NB_NB', 'PAT_BG_RH_NB_Rh_negative',
+    #    'PAT_BG_RH_NB_Rh_positive', 'PAT_BG_RH_Not_applicable']
+for bg_rh in BG_RH_cols:
+    # viz.seasonal_plot(df_processed, plot_type="weekly", col_name=bg_rh)
+    viz.seasonal_plot(df_processed, plot_type="daily", col_name=bg_rh)
+
+
+
 ward_cols = ['ward_AN', 'ward_CH', 'ward_I1', 'ward_I3', 'ward_Other', 'ward_UC']
 for ward in ward_cols:
     viz.seasonal_plot(df_processed, plot_type="weekly", col_name=ward)
@@ -122,8 +145,10 @@ for ward in ward_cols:
 # plt.show
 
 
+
 #%%--------------------------------------------------------------------------------
-# DATA VIZ (EXPLORATION)
+# MARK: DATA VIZ 
+# (EXPLORATION)
 #----------------------------------------------------------------------------------
 IMAGES_PATH_EXPLORATION = IMAGE_PATH + "/00-Data-Exploration/"
 START_DATE_EXPLORATION = "2020-01-01"
@@ -134,7 +159,7 @@ PRE_COVID_END = "2020-01-01"
 importlib.reload(data_model)
 
 df = data_model.Data(data=df_processed)
-##%%
+##%
 #df.print_head()
 df[START_DATE_EXPLORATION:].plot_seasonal(plot_type='daily', col_name='use_transfused', fig_location=IMAGES_PATH_EXPLORATION)
 df[START_DATE_EXPLORATION:].plot_seasonal(plot_type='weekly', col_name='use_transfused')
@@ -209,7 +234,8 @@ print(ward_results)
 print(len(ward_results))
 
 #%%--------------------------------------------------------------------------------
-# STATIONARITY -- Check for Stat./Make stationarys
+# MARK: STATIONARITY 
+# Check for Stat./Make stationarys
 #----------------------------------------------------------------------------------
 #TODOLIST:
 # 1. OG Data
@@ -322,7 +348,7 @@ while i <= num_differencing:
 
 
 #%%--------------------------------------------------------------------------------
-# MODEL BUILDING
+# MARK: MODEL BUILDING
 #----------------------------------------------------------------------------------
 
 #TODO: add multiple runs, to test for different parameters
@@ -337,7 +363,7 @@ while i <= num_differencing:
 
 
 #%% 
-# ARIMA
+# MARK: ARIMA
 #----------------------------------------------------------------------------------
 
 importlib.reload(model)
@@ -348,7 +374,7 @@ arima = model.ModelArima(df)
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-arima.set_validation_rolling_window(train_percent=0.99, test_len=10, start_date=config.DEV_START_DATE) #TODO: change date/remove it
+arima.set_validation_rolling_window(train_percent=0.975, test_len=7, start_date=config.DEV_START_DATE) #TODO: change date/remove it
 
 arima.set_model_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
 arima.model_run(col="use_transfused")
@@ -357,10 +383,11 @@ arima.model_run(col="use_transfused")
 arima.plot_stepwise(plot_type="forecast") #forecast
 arima.plot_stepwise(df=arima.stepwise_forecast_difference, plot_type="difference", comparison=False) #forecast difference
 arima.plot_stepwise_forecast_errors()
+print(arima.stepwise_forecast_errors)
 
 
 #%%
-# SARIMAX
+# MARK: SARIMAX
 #----------------------------------------------------------------------------------
 
 
@@ -368,29 +395,33 @@ importlib.reload(model)
 importlib.reload(config) #for DEV_START_DATE
 
 
-sarima = model.ModelSarima(df)
+sarima = model.ModelSarimax(df)
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-sarima.set_validation_rolling_window(train_percent=0.9800, test_len=14, start_date=config.DEV_START_DATE) #TODO: change date/remove it
+sarima.set_validation_rolling_window(train_percent=0.9750, test_len=7, start_date=config.DEV_START_DATE) #TODO: change date/remove it
 
-sarima.set_model_parameters(1, 1, 1) #7,1,1, #TODO: add hyperparam grid
-sarima.model_run(col="use_transfused")#, exog=["PAT_BG_0", "PAT_BG_A", "PAT_BG_AB", "PAT_BG_B"])
+sarima.set_exogenous_vars(exog_cols=["tlmin", "workday_enc", "holiday_enc", "day_of_week", "day_of_year"])
+sarima.set_model_parameters(7, 1, 1, 0,0,2,7) #7,1,1, #TODO: add hyperparam grid
+
+sarima.model_run(pred_col="use_transfused")#, exog=["PAT_BG_0", "PAT_BG_A", "PAT_BG_AB", "PAT_BG_B"])
 
 #Try out stepwise error measurements (now only mae):
 sarima.plot_stepwise(plot_type="forecast") #forecast
 sarima.plot_stepwise(df=sarima.stepwise_forecast_difference, comparison=False, plot_type="forecast difference") #forecast difference
 sarima.plot_stepwise_forecast_errors()
+print(sarima.stepwise_forecast_errors)
 
 
 
-#%% 
-# LSTM
+ 
+#%%----------------------------------------------------------------------------------
+# MARK: LSTM
 #----------------------------------------------------------------------------------
 
 
 #%% 
-# PROPHET
+# MARK: PROPHET
 #----------------------------------------------------------------------------------
 
 from prophet import Prophet
@@ -453,6 +484,7 @@ fc.head()
 
 
 #%%--------------------------------------------------------------------------------
+# MARK: VIZ RESULTS
 # DATA VIZ (FINISHED MODEL) 
 #----------------------------------------------------------------------------------
 # Plot prediction vs actual
@@ -475,7 +507,7 @@ fc.head()
 
 
 #%%--------------------------------------------------------------------------------
-# EVALUATION
+# MARK: EVALUATION
 #----------------------------------------------------------------------------------
 
 # TODO: load data from csv

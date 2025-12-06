@@ -48,6 +48,11 @@ from src import viz
 df_original = pd.read_csv("../data/03_transformed/output_transformed.csv")
 df_original = df_original.set_index("date")
 df_original.index = pd.to_datetime(df_original.index)
+
+
+#%%
+# Add additional temporal features (workday, holiday, day of year, day of week)
+
 #Add workday info
 import holidays
 
@@ -56,6 +61,30 @@ vie_holidays = holidays.country_holidays('Austria', subdiv='W')
 
 df_original["is_workday"] = df_original.index.to_series().apply(lambda x: vie_holidays.is_working_day(x))
 #df_original = df_original.diff().dropna()
+df_original["workday_enc"] = df_original["is_workday"].astype(int)
+#alternative ways
+#df_original["workday"] = df_original.where(df_original["is_workday"], 1, 0) 
+#df_original["workday"] = df_original.apply(lambda workday: 1 if workday else 0)
+
+#holiday encoding:
+df_original["holiday"] = pd.Series(df_original.index).apply(lambda x: vie_holidays.get(x)).values
+unique_holidays = df_original["holiday"].dropna().unique()
+holiday_map = pd.DataFrame({
+    "holiday" : unique_holidays,
+    "holiday_enc" : range(1, len(unique_holidays)+1)
+})
+holiday_map = pd.concat([
+    pd.DataFrame({"holiday": [np.nan], "holiday_enc": [0]}), 
+    holiday_map],
+    ignore_index=True
+)
+df_original = pd.merge(df_original.reset_index(), holiday_map, how="left", on="holiday").set_index("date")
+
+#Add day of the week, day of the year, year columns
+df_original["day_of_week"] = df_original.index.dayofweek
+df_original["day_of_year"] = df_original.index.dayofyear
+df_original["year"] = df_original.index.year
+
 df_original.info()
 
 #%%
@@ -236,86 +265,290 @@ plt.show()
 
 
 
-# ---------------------------------------------------------#
-#%%                       SARIMAX                          #
+#%%  ---------------------------------------------------------#
+#                        SARIMAX 1                         #
 # ---------------------------------------------------------#
 #without exogenous (atm)
-#%% Auto-arima
-auto_arima(df[COLUMN], m=7, trace=True, suppress_warnings=True).summary()
-# %% Make predictions
 
 
-model_sarimax = SARIMAX(df[COLUMN], order = (0,1,1), seasonal_order=(0,0,2, 7))
+# Make predictions
 
-res_sarimax = model_sarimax.fit()
+
+
+# Auto-arima
+# auto_arima(df[COLUMN], m=7, trace=True, suppress_warnings=True).summary()
+
+
+model_sarima1 = SARIMAX(
+    train_df[COLUMN], #df[COLUMN], 
+    order = (1,1,1), 
+    seasonal_order=(1,0,2, 7)
+)
+
+res_sarima1 = model_sarima1.fit()
 start = len(train_df)
 end = len(train_df) + len(test_df) -1
-prediction_sarimax = res_sarimax.predict(start, end).rename("Prediction")
+prediction_sarima1 = res_sarima1.predict(start, end, dynamic=True).rename("Prediction")
 
-prediction_sarimax = prediction_sarimax.to_frame()
-prediction_sarimax.index = pd.to_datetime(prediction_sarimax.index)#pd.to_datetime(prediction.index).dt.date
-prediction_sarimax.index.name = "Date"
+prediction_sarima1 = prediction_sarima1.to_frame()
+prediction_sarima1.index = pd.to_datetime(prediction_sarima1.index)#pd.to_datetime(prediction.index).dt.date
+prediction_sarima1.index.name = "Date"
 test_df[COLUMN].plot(legend=True, figsize=(16,8))
-prediction_sarimax["Prediction"].plot(legend=True)
-plt.title("SARIMAX: Test data & prediction")
+prediction_sarima1["Prediction"].plot(legend=True)
+plt.title("sarima1X 1 (without): Test data & prediction")
 plt.show()
 
-difference_sarimax = abs(test_df[COLUMN] - prediction_sarimax["Prediction"]).rename("Difference")
-difference_sarimax.plot(legend=True, figsize=(16,8))
-plt.title("SARIMAX: Absolute Difference between y - y_hat")
+difference_sarima1 = abs(test_df[COLUMN] - prediction_sarima1["Prediction"]).rename("Difference")
+difference_sarima1.plot(legend=True, figsize=(16,8))
+plt.title("sarima1X 1 (without): Absolute Difference between y - y_hat")
 plt.show()
-prediction_sarimax.head()
+prediction_sarima1.head()
 
-#%% 
-# check accurarcy
-print("SARIMAX without exogenous")
-print("RMSE",   metrics.root_mean_squared_error(test_df[COLUMN], prediction_sarimax["Prediction"])) #21.46 -- not so good i guess
-print("MAPE",   metrics.mean_absolute_percentage_error(test_df[COLUMN], prediction_sarimax["Prediction"])) #21.46 -- not so good i guess
-print("MAE",    metrics.mean_absolute_error(test_df[COLUMN], prediction_sarimax["Prediction"])) #21.46 -- not so good i guess
-print("MedAE",  metrics.median_absolute_error(test_df[COLUMN], prediction_sarimax["Prediction"])) #21.46 -- not so good i guess
-print("MaxE",   metrics.max_error(test_df[COLUMN], prediction_sarimax["Prediction"])) #21.46 -- not so good i guess
+ 
+# check accuracy
+print("SARIMAX 1 without exogenous")
+print("RMSE",   metrics.root_mean_squared_error(test_df[COLUMN], prediction_sarima1["Prediction"])) #21.46 -- not so good i guess
+print("MAPE",   metrics.mean_absolute_percentage_error(test_df[COLUMN], prediction_sarima1["Prediction"])) #21.46 -- not so good i guess
+print("MAE",    metrics.mean_absolute_error(test_df[COLUMN], prediction_sarima1["Prediction"])) #21.46 -- not so good i guess
+print("MedAE",  metrics.median_absolute_error(test_df[COLUMN], prediction_sarima1["Prediction"])) #21.46 -- not so good i guess
+print("MaxE",   metrics.max_error(test_df[COLUMN], prediction_sarima1["Prediction"])) #21.46 -- not so good i guess
 
+
+#%% ---------------------------------------------------------#
+#                       SARIMAX   2                      #
 # ---------------------------------------------------------#
-#%%                       SARIMAX                          #
+#without exogenous (atm) 2
+#its just the code below copied, and everything with exog removed.
+
+
+
+# Auto-arima
+# auto_arima(df[COLUMN], m=7, trace=True, suppress_warnings=True).summary()
+# Make predictions
+
+
+
+
+model_sarima2 = SARIMAX(
+     train_df[COLUMN], 
+     order = (1,1,1), 
+     seasonal_order=(1,0,2,7)
+)
+
+
+res_sarima2 = model_sarima2.fit()#start_params=(0,0,0,0,0,1,1,1,1,1))
+
+#Predict
+start = len(train_df)
+end = len(train_df) + len(test_df) -1
+# start = test_df.index.min()
+# end = test_df.index.max()
+prediction_sarima2 = res_sarima2.predict(start, end, dynamic=True).rename("Prediction")
+
+#forecast
+# forecast_sarimax = res_sarima2.forecast(4, exog=exog_test)
+
+
+prediction_sarima2 = prediction_sarima2.to_frame()
+prediction_sarima2.index = pd.to_datetime(prediction_sarima2.index)#pd.to_datetime(prediction.index).dt.date
+prediction_sarima2.index.name = "Date"
+test_df[COLUMN].plot(legend=True, figsize=(16,8))
+prediction_sarima2["Prediction"].plot(legend=True)
+plt.title("SARIMAX 2(without): Test data & prediction")
+plt.show()
+
+difference_sarima2 = abs(test_df[COLUMN] - prediction_sarima2["Prediction"]).rename("Difference")
+difference_sarima2.plot(legend=True, figsize=(16,8))
+plt.title("SARIMAX 2 (without): Absolute Difference between y - y_hat")
+plt.show()
+prediction_sarima2.head()
+
+
+# check accuracy
+print("SARIMAX 2 without exogenous")
+print("RMSE",   metrics.root_mean_squared_error(test_df[COLUMN], prediction_sarima2["Prediction"])) #21.46 -- not so good i guess
+print("MAPE",   metrics.mean_absolute_percentage_error(test_df[COLUMN], prediction_sarima2["Prediction"])) #21.46 -- not so good i guess
+print("MAE",    metrics.mean_absolute_error(test_df[COLUMN], prediction_sarima2["Prediction"])) #21.46 -- not so good i guess
+print("MedAE",  metrics.median_absolute_error(test_df[COLUMN], prediction_sarima2["Prediction"])) #21.46 -- not so good i guess
+print("MaxE",   metrics.max_error(test_df[COLUMN], prediction_sarima2["Prediction"])) #21.46 -- not so good i guess
+
+
+
+#%% ---------------------------------------------------------#
+#                       SARIMAX 3                         #
 # ---------------------------------------------------------#
 # WITH exogenous
-#%% Auto-arima
-auto_arima(df[COLUMN], m=7, trace=True, suppress_warnings=True).summary()
-# %% Make predictions
 
 
-model_sarimax = SARIMAX(df[COLUMN], order = (0,1,1), seasonal_order=(0,0,2, 7))
+# Auto-arima
+# auto_arima(df[COLUMN], m=7, trace=True, suppress_warnings=True).summary()
+# Make predictions
 
-res_sarimax = model_sarimax.fit()
-start = len(train_df)
-end = len(train_df) + len(test_df) -1
-prediction_sarimax = res_sarimax.predict(start, end).rename("Prediction")
 
-prediction_sarimax = prediction_sarimax.to_frame()
-prediction_sarimax.index = pd.to_datetime(prediction_sarimax.index)#pd.to_datetime(prediction.index).dt.date
-prediction_sarimax.index.name = "Date"
-test_df[COLUMN].plot(legend=True, figsize=(16,8))
-prediction_sarimax["Prediction"].plot(legend=True)
-plt.title("SARIMAX: Test data & prediction")
+
+#define exogenous variables
+exog_cols = ["tlmin", "workday_enc", "holiday_enc", "day_of_week", "day_of_year"]#, "new_cases_daily"] #"tlmax", "new_cases_weekly"
+n_obs = len(train_df) #number of ENDOgenous observations
+k_exog = len(exog_cols) #number of EXOG variables
+exog = np.empty([n_obs, k_exog]) #empty array
+for i, ex in enumerate(exog_cols):
+     exog[:, i] = train_df[ex]
+
+
+
+model_sarimax3 = SARIMAX(
+     endog=train_df[COLUMN], 
+     exog=train_df[exog_cols], 
+     order = (0,0,1), 
+     seasonal_order=(0,0,2,7)
+)
+
+
+res_sarimax3 = model_sarimax3.fit()#start_params=(0,0,0,0,0,1,1,1,1,1))
+
+#Predict
+# start = len(train_df)
+# end = len(train_df) + len(test_df) -1
+start = test_df.index.min()
+end = test_df.index.max()
+exog_prediction = test_df[exog_cols]
+prediction_sarimax3 = res_sarimax3.predict(start=start, end=end, exog=exog_prediction, dynamic=True).rename("Prediction")
+# prediction_sarimax3 = (res_sarimax3
+#     .get_prediction(start=start, end=end, exog=exog_prediction, dynamic=True)
+#     .summary_frame(alpha=0.05)
+#     .rename(columns={"mean":"Prediction"})
+# )
+#forecast
+# forecast_sarimax = res_sarimax3.forecast(4, exog=exog_test)
+
+
+prediction_sarimax3 = prediction_sarimax3.to_frame()
+prediction_sarimax3.index = pd.to_datetime(prediction_sarimax3.index)#pd.to_datetime(prediction.index).dt.date
+prediction_sarimax3.index.name = "Date"
+
+
+fig, ax = plt.subplots(figsize=(16,8))
+ax.set(
+    title="SARIMAX 3(with): Test data & prediction",
+    xlabel="Date",
+    ylabel=f"{COLUMN} (pred/actual)"
+)
+ax.plot(test_df[COLUMN], label="original data")
+ax.plot(prediction_sarimax3["Prediction"], label="Prediction")
+# ax.fill_between(
+#     prediction_sarimax3.index, prediction_sarimax3['mean_ci_lower'], prediction_sarimax3['mean_ci_upper'],
+#     color='r', alpha=0.1
+# )
+plt.legend()
 plt.show()
 
-difference_sarimax = abs(test_df[COLUMN] - prediction_sarimax["Prediction"]).rename("Difference")
-difference_sarimax.plot(legend=True, figsize=(16,8))
-plt.title("SARIMAX: Absolute Difference between y - y_hat")
+difference_sarimax3 = abs(test_df[COLUMN] - prediction_sarimax3["Prediction"]).rename("Difference")
+difference_sarimax3.plot(legend=True, figsize=(16,8))
+plt.title("SARIMAX 3 (with): Absolute Difference between y - y_hat")
 plt.show()
-prediction_sarimax.head()
 
-#%% 
-# check accurarcy
-print("SARIMAX with exogenous")
-print("RMSE",   metrics.root_mean_squared_error(test_df[COLUMN], prediction_sarimax["Prediction"])) #21.46 -- not so good i guess
-print("MAPE",   metrics.mean_absolute_percentage_error(test_df[COLUMN], prediction_sarimax["Prediction"])) #21.46 -- not so good i guess
-print("MAE",    metrics.mean_absolute_error(test_df[COLUMN], prediction_sarimax["Prediction"])) #21.46 -- not so good i guess
-print("MedAE",  metrics.median_absolute_error(test_df[COLUMN], prediction_sarimax["Prediction"])) #21.46 -- not so good i guess
-print("MaxE",   metrics.max_error(test_df[COLUMN], prediction_sarimax["Prediction"])) #21.46 -- not so good i guess
 
+# check accuracy
+print("SARIMAX 3 with exogenous")
+print("RMSE",   metrics.root_mean_squared_error(test_df[COLUMN], prediction_sarimax3["Prediction"])) #21.46 -- not so good i guess
+print("MAPE",   metrics.mean_absolute_percentage_error(test_df[COLUMN], prediction_sarimax3["Prediction"])) #21.46 -- not so good i guess
+print("MAE",    metrics.mean_absolute_error(test_df[COLUMN], prediction_sarimax3["Prediction"])) #21.46 -- not so good i guess
+print("MedAE",  metrics.median_absolute_error(test_df[COLUMN], prediction_sarimax3["Prediction"])) #21.46 -- not so good i guess
+print("MaxE",   metrics.max_error(test_df[COLUMN], prediction_sarimax3["Prediction"])) #21.46 -- not so good i guess
+
+
+#%% -------------------------------------------------------#
+#                       SARIMAX 4                          #
 # ---------------------------------------------------------#
-#                         LSTM                             #
+# WITH exogenous, ONLY known future exogenous variables
+
+# Auto-arima
+#aa = auto_arima(df[COLUMN], m=7, trace=True, suppress_warnings=True).summary()
+# Make predictions
+
+
+
+#define exogenous variables
+exog_cols = ["tlmin", "workday_enc", "holiday_enc", "day_of_week", "day_of_year"]#, "new_cases_daily"] #"tlmax", "new_cases_weekly"
+
+
+model_sarimax3 = SARIMAX(
+     endog=train_df[COLUMN], 
+     exog=train_df[exog_cols], 
+     order = (0,1,1), 
+     seasonal_order=(0,0,2,7)
+)
+
+
+res_sarimax3 = model_sarimax3.fit()#start_params=(0,0,0,0,0,1,1,1,1,1))
+
+#Predict
+# start = len(train_df)
+# end = len(train_df) + len(test_df) -1
+start = test_df.index.min()
+end = test_df.index.max()
+exog_prediction = test_df[exog_cols]
+# prediction_sarimax3 = res_sarimax3.predict(start=start, end=end, exog=exog_prediction, dynamic=True).rename("Prediction")
+# prediction_sarimax3 = prediction_sarimax3.to_frame()
+# prediction_sarimax3.index = pd.to_datetime(prediction_sarimax3.index)#pd.to_datetime(prediction.index).dt.date
+# prediction_sarimax3.index.name = "Date"
+prediction_sarimax3 = (res_sarimax3.
+    get_prediction(start=start, end=end, exog=exog_prediction, dynamic=True)
+    .summary_frame(alpha=0.5)
+    .rename(columns={"mean": "Prediction"})
+)
+
+#forecast
+# forecast_sarimax = res_sarimax3.forecast(4, exog=exog_test)
+
+
+fig, ax = plt.subplots(figsize=(16,8))
+ax.set(
+    title="SARIMAX 3(with): Test data & prediction",
+    xlabel="Date",
+    ylabel=f"{COLUMN} (pred/actual)"
+)
+ax.plot(test_df[COLUMN], label="original data")
+ax.plot(prediction_sarimax3["Prediction"], label="Prediction")
+ax.fill_between(
+    prediction_sarimax3.index, prediction_sarimax3['mean_ci_lower'], prediction_sarimax3['mean_ci_upper'],
+    color='r', alpha=0.1
+)
+plt.legend()
+plt.show()
+
+difference_sarimax3 = abs(test_df[COLUMN] - prediction_sarimax3["Prediction"]).rename("Difference")
+difference_sarimax3.plot(legend=True, figsize=(16,8))
+plt.title("SARIMAX 3 (with): Absolute Difference between y - y_hat")
+plt.show()
+
+
+#old viz, without conf. int.
+# test_df[COLUMN].plot(legend=True, figsize=(16,8))
+# prediction_sarimax3["Prediction"].plot(legend=True)
+# plt.title("SARIMAX 3(with): Test data & prediction")
+# plt.show()
+
+# difference_sarimax3 = abs(test_df[COLUMN] - prediction_sarimax3["Prediction"]).rename("Difference")
+# difference_sarimax3.plot(legend=True, figsize=(16,8))
+# plt.title("SARIMAX 3 (with): Absolute Difference between y - y_hat")
+# plt.show()
+# prediction_sarimax3.head()
+
+
+# check accuracy
+print("SARIMAX 3 with exogenous")
+print("RMSE",   metrics.root_mean_squared_error(test_df[COLUMN], prediction_sarimax3["Prediction"])) #21.46 -- not so good i guess
+print("MAPE",   metrics.mean_absolute_percentage_error(test_df[COLUMN], prediction_sarimax3["Prediction"])) #21.46 -- not so good i guess
+print("MAE",    metrics.mean_absolute_error(test_df[COLUMN], prediction_sarimax3["Prediction"])) #21.46 -- not so good i guess
+print("MedAE",  metrics.median_absolute_error(test_df[COLUMN], prediction_sarimax3["Prediction"])) #21.46 -- not so good i guess
+print("MaxE",   metrics.max_error(test_df[COLUMN], prediction_sarimax3["Prediction"])) #21.46 -- not so good i guess
+
+
+
+#
+# ---------------------------------------------------------#
+#%%                         LSTM                             #
 # ---------------------------------------------------------#
 # #without exogenous (atm)
 

@@ -3,12 +3,15 @@
 import pandas as pd
 import datetime as dt
 from time import time
+
 from numpy import nan
+
 from pathlib import Path
+from numpy import nan
 
 from src import config
 from src.utils import timer_func
-
+from os.path import commonprefix
 
 
 #-----------------------------------------------------------------------------
@@ -64,8 +67,10 @@ def clean_data(df,
         #NOTE: coddddduld add top level to dict to map to BG/RH
         #NOTE: could wrap in function 
         for col in ["EC_BG", "PAT_BG"]:
+            df[col] = df[col].replace(nan, "nan") #np.nan
             df[col] = df[col].replace(config.blood_group_map)
         for col in ["EC_RH", "PAT_RH"]:
+            df[col] = df[col].replace(nan, "nan") #np.nan
             df[col] = df[col].replace(config.rhesus_factor_map)
             print(f"unique values in for loop: {pd.unique(df[col])}")
         print(f"unique values after for loop: {df.apply(lambda col: col.unique())}")
@@ -80,7 +85,7 @@ def clean_data(df,
         #TODO: better fct name
         df = add_not_applicable(df)
 
-
+        df = merge_BG_Rh(df)
 
         #Save new file:
         print(f"Write new file to {new_file_path}")
@@ -272,5 +277,46 @@ def check_unique_values(df, hidden_cols=["date", "EC_ID_I_hash", "EC_ID_O_hash"]
     for col in df.columns:
         if col not in hidden_cols:
             print(f"{col}:\n{df[col].unique()}\n")
+
+
+def merge_BG_Rh(df, merge_cols=[("EC_BG", "EC_RH"),("PAT_BG", "PAT_RH")], suffix="_BG_RH"):
+    """Merge back Bloodgroup (BG) with Rhesus factor (RH) column for both EC_BG+EC_RH
+    and PAT_BG+PAT_RH respectively. This makes sense, since they belong together.
+    Its not of interest, if we have X transfusions with BG A, but hwo many of A+, AB- etc.
+    Columns are merged so that BG is first, then Rh (in string).
+
+    Args:
+        df (DataFrame): DataFrame with all other cleaning steps done. 
+        Must include columns pairs of columns in order of merging in format prefix_suffix, 
+        where suffix is differentiating between bg and rh (for prefix finding letter)
+        Here/Default: 'EC_BG', 'EC_RH' and 'PAT_BG', 'PAT_RH'
+    """
+
+    for pair in merge_cols:
+        bg = pair[0]
+        rh = pair[1]
+
+        #get prefix:
+        # prefix = ""
+        # for letter in bg:
+        #     if bg[letter] == rh[letter]:
+        #         prefix.append(bg[letter])
+        #         print(f"prefix: {prefix}")
+        # if len(prefix) == 0:
+        #     prefix = bg + rh
+        prefix = commonprefix([bg, rh])
+        new_name = prefix[:-1] + suffix 
+
+        #actual merging: [:-1] to remove '_'
+        df[new_name] = df[bg].astype(str) + " " + df[rh].astype(str)
+        # df[f"{prefix[:-1]}_BG_RH"] = df[[bg, rh]].agg(' '.join, axis=1)
+        df[new_name] = df[new_name].replace(to_replace="Not applicable Not applicable", value="Not applicable")
+        #remove old columns
+        df = df.drop([bg, rh], axis=1)
+
+
+        
+
+    return df
 
 

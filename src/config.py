@@ -6,8 +6,8 @@ ENABLE_LOGGING = True
 SAVE_FIGS = False
 
 #Slice data while developing
-DEV_START_DATE = "2020-01-01"
-DEV_END_DATE = "2024-12-31"
+DEV_START_DATE = "2019-01-01"
+DEV_END_DATE = "2025-07-01"
 
 # DATE: Mapping of column names with their respective format
 # DONE: change all date formats to iso without time
@@ -64,7 +64,9 @@ rhesus_factor_map = {
     "Rh positiv" : "Rh positive",
     "+" : "Rh positive",
 
+    
     "nan" : "NB",
+    # "Not applicable" : "NB",
     "NBN" : "NB",
     "Rh nicht bestimmb." : "NB",
     "KMT Rh n. bestimmb." : "NB",
@@ -84,6 +86,8 @@ blood_group_map = {
     "B" : "B",
     "AB" : "AB",
 
+    "nan" : "NB",
+    # "Not applicable" : "NB",
     "NB" : "NB",
     #"NBN" : "NBN",
     "BG nicht bestimmb." : "NB",
