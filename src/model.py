@@ -12,6 +12,7 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 import sklearn.metrics as metrics #error metrics (mae, mape etc)
 
 
+# MARK: Model
 class Model:
     #methods for running are in the child classes for the individual models.
     # here only general methods needed for the models
@@ -74,8 +75,13 @@ class Model:
 
     #------------------------------------------------------------------------------------------------
     # Helper functions
+    # MARK: HELPERS
     #------------------------------------------------------------------------------------------------
     
+    #------------------------------------------------------------------------------------------------
+    # SETTERS
+    # MARK: Setters
+
     def set_validation_expanding_window(self, train_percent: float, test_len: int, start_date: str=None):
         """
         Set parameters of validation_config variable (doesnt RUN validation) and create a 
@@ -191,7 +197,9 @@ class Model:
         self.make_validation_set()
 
 
-
+    #------------------------------------------------------------------------------------------------
+    # General
+    # MARK: General
     def make_validation_set(self, steps: int=1):
         """
         Make a list of tuples that contain (train_start, train_end, test_start, test_end), to use for validation.
@@ -288,9 +296,24 @@ class Model:
                 self.stepwise_forecasts.columns = [*self.stepwise_forecasts.columns[:-1], f"Days ahead: {step}"]
                 
 
+    #NOTE: not in use currently
+    def split_by_percentage(self, percent: float=0.33, start_date=None):
+        """
+        percent = percent to assign as train data. 
+        """
+        
+        if percent >= 1 or percent <= 0:
+            raise Exception(f"Training/test data ratio: test size: {percent}) must be float smaller than 1 (should be >0.5)")
+
+        self.split_index = int(len(self.data)*percent)
+        self.train_data = self.data.iloc[: self.split_index]
+        self.test_data = self.data.iloc[self.split_index:]
 
 
 
+    #------------------------------------------------------------------------------------------------
+    # Getters
+    # MARK: Getters
     def get_validation_type(self):
         print("Validation type:", self.validation_type["type"])
 
@@ -313,78 +336,6 @@ class Model:
 
         return split_date
 
-
-    #NOTE: not in use currently
-    def split_by_percentage(self, percent: float=0.33, start_date=None):
-        """
-        percent = percent to assign as train data. 
-        """
-        
-        if percent >= 1 or percent <= 0:
-            raise Exception(f"Training/test data ratio: test size: {percent}) must be float smaller than 1 (should be >0.5)")
-
-        self.split_index = int(len(self.data)*percent)
-        self.train_data = self.data.iloc[: self.split_index]
-        self.test_data = self.data.iloc[self.split_index:]
-
-
-    #TODO: implement selection for days to plot ahead
-    def plot_stepwise(self, plot_type: str, df: pd.DataFrame=None, comparison=True, comparison_col="count", days=None):
-        """Plot the stepwise predictions or difference against actual/true values.
-        i.e. plot e.g. one-day-ahead prediction against test set, two-day-ahead, etc.
-        Defaults to plot stepwise_forecasts data, but can also be used for stepwise_forecast_difference 
-        (which is alos stepwise).
-        """
-        if df is None:
-            df = self.stepwise_forecasts
-
-        comparison_data = self.data[comparison_col]
-
-
-        colors = iter(cm.rainbow(np.linspace(1, 0.6, len(df.columns))))
-
-        #original_data = 
-        plt.figure(figsize=(14,7))
-
-        if plot_type == "forecast difference":
-            plt.axhline(y= 0, linestyle = "dashed", color="lightgrey")
-            for col in df.columns:
-                print("original: ", col, "\n", df[col])
-                df[col] = comparison_data - df[col]
-                print("comparison: ", col, "\n", comparison_data)
-                print("subtracted: ", col, "\n", df[col])
-    
-
-        if comparison == True:
-            plot_start = df.index.min() - pd.DateOffset(60) #first element of first key
-            plot_end = df.index.max()#self.stepwise_forecasts.keys()[-1][-1] #last element of last key
-            plt.plot(self.data[plot_start:plot_end][comparison_col], label="original data")
-
-
-        for col in df.columns:
-            plt.plot(df[col], label=col, color=next(colors))
-
-        plt.title(f"Stepwise {plot_type}; Model: {self.class_name}")
-        plt.legend()
-        plt.show()
-
-
-
-    def plot_stepwise_forecast_errors(self):
-        #TODO: change colors to be more different. 
-        # TODO: maybe add error names directly to lines instead of having a legend 
-        print(self.stepwise_forecast_errors.columns)
-        print(len(self.stepwise_forecast_errors.columns))
-        colors = iter(cm.gist_ncar(np.linspace(1, 0, len(self.stepwise_forecast_errors.columns))))
-
-        for col in self.stepwise_forecast_errors.columns:
-            if col == "MSE":
-                continue
-            plt.plot(self.stepwise_forecast_errors[col], label=col, color=next(colors))
-        plt.tight_layout()
-        plt.title(f"Forecast errors; Model: {self.class_name}")
-        plt.legend()
-        plt.show()
 
 
     def add_stepwise_errors(self, col_pred: str="count"):
@@ -485,6 +436,67 @@ class Model:
 
     #UNCLEAR: add extra plotting here or just use the functions? 
 
+    #------------------------------------------------------------------------------------------------
+    # Plotters
+    # MARK: Plotters
+    #TODO: implement selection for days to plot ahead
+    def plot_stepwise(self, plot_type: str, df: pd.DataFrame=None, comparison=True, comparison_col="count", days=None):
+        """Plot the stepwise predictions or difference against actual/true values.
+        i.e. plot e.g. one-day-ahead prediction against test set, two-day-ahead, etc.
+        Defaults to plot stepwise_forecasts data, but can also be used for stepwise_forecast_difference 
+        (which is alos stepwise).
+        """
+        if df is None:
+            df = self.stepwise_forecasts
+
+        comparison_data = self.data[comparison_col]
+
+
+        colors = iter(cm.rainbow(np.linspace(1, 0.6, len(df.columns))))
+
+        #original_data = 
+        plt.figure(figsize=(14,7))
+
+        if plot_type == "forecast difference":
+            plt.axhline(y= 0, linestyle = "dashed", color="lightgrey")
+            for col in df.columns:
+                print("original: ", col, "\n", df[col])
+                df[col] = comparison_data - df[col]
+                print("comparison: ", col, "\n", comparison_data)
+                print("subtracted: ", col, "\n", df[col])
+    
+
+        if comparison == True:
+            plot_start = df.index.min() - pd.DateOffset(60) #first element of first key
+            plot_end = df.index.max()#self.stepwise_forecasts.keys()[-1][-1] #last element of last key
+            plt.plot(self.data[plot_start:plot_end][comparison_col], label="original data")
+
+
+        for col in df.columns:
+            plt.plot(df[col], label=col, color=next(colors))
+
+        plt.title(f"Stepwise {plot_type}; Model: {self.class_name}")
+        plt.legend()
+        plt.show()
+
+
+
+    def plot_stepwise_forecast_errors(self):
+        #TODO: change colors to be more different. 
+        # TODO: maybe add error names directly to lines instead of having a legend 
+        print(self.stepwise_forecast_errors.columns)
+        print(len(self.stepwise_forecast_errors.columns))
+        colors = iter(cm.gist_ncar(np.linspace(1, 0, len(self.stepwise_forecast_errors.columns))))
+
+        for col in self.stepwise_forecast_errors.columns:
+            if col == "MSE":
+                continue
+            plt.plot(self.stepwise_forecast_errors[col], label=col, color=next(colors))
+        plt.tight_layout()
+        plt.title(f"Forecast errors; Model: {self.class_name}")
+        plt.legend()
+        plt.show()
+
 
     
 
@@ -493,7 +505,8 @@ class Model:
 #--------------------------------------------------------------------
 # Individual Models:
 #--------------------------------------------------------------------
-    
+
+# MARK: Comparison
 # Comparison Model
 # single value
 # naive/persistent (n-1)
@@ -532,6 +545,7 @@ class ModelComparison(Model):
         pass
 
     def run_single_value(self):
+
         pass
 
     def run_naive(self):
@@ -548,6 +562,7 @@ class ModelComparison(Model):
 
 
 # ARIMA
+# MARK: ARIMA
 class ModelArima(Model):
     class_name = "Arima"
 
@@ -683,6 +698,7 @@ class ModelArima(Model):
 
 
 # SARIMAX
+# MARK: SARIMAX
 class ModelSarimax(Model):
     class_name = "Arima"
 
@@ -878,6 +894,7 @@ class ModelSarimax(Model):
 
 
 # LSTM
+# MARK: LSTM
 
 class ModelLSTM(Model):
 
@@ -896,6 +913,7 @@ class ModelLSTM(Model):
 
 
 # Prophet
+# MARK: Prophet
 class ModelProphet(Model):
 
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
