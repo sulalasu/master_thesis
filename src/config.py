@@ -8,6 +8,8 @@ SAVE_FIGS = False
 #Slice data while developing
 DEV_START_DATE = "2019-01-01"
 DEV_END_DATE = "2025-07-01"
+COLUMN = "use_transfused"
+
 
 # DATE: Mapping of column names with their respective format
 # DONE: change all date formats to iso without time

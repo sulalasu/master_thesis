@@ -1,4 +1,5 @@
-#%%
+#%% MARK: libs etc
+
 import pandas as pd
 import numpy as np
 from numpy import nan
@@ -34,6 +35,7 @@ IMAGE_PATH = "plots/2025_10_10-Plots_for_Meeting/"
 df_raw = load.load_data(path="data/01_raw/blood-data_complete_2025-07-16.tsv")
 # df_raw = load.load_data(path="data/01_raw/testdaten.tsv")
 
+#%%
 load.show_info(df=df_raw)
 hidden_cols=["date", "EC_ID_I_hash", "EC_ID_O_hash", "T_ISO", "T_DE_T", "T_US", "T_DE_S", "T_US_T", "T_DE", "T_ISO_T", "T_XL"]
 for col in df_raw.columns:
@@ -64,6 +66,7 @@ df_clean = clean.clean_data(df_raw)
 #df_clean = df_clean.loc[mask]
 #df_clean = df_clean['2018-01-01':'2024-12-31'] #only works on monotonic (==daily aggregated, no duplicate days) df
 
+#%%
 #TODO: Check what unique vals are present in df
 clean.check_unique_values(df_clean.drop(["EC_ID_I_hash", "EC_ID_O_hash", "PAT_WARD"], axis=1))
 
@@ -93,7 +96,7 @@ viz.plot_patient_wards(df_clean, n=500, save_figs=False, location=IMAGES_PATH_EX
 
 #%%--------------------------------------------------------------------------------
 # MARK: TRANSFORMING
-# MARK: PROCESSING
+# /PROCESSING
 #----------------------------------------------------------------------------------
 # make STATIONARY! (if all models need that, otherwise make it a member function)
 # splitting in test/training etc. here or as extra step/model step?
@@ -159,6 +162,8 @@ PRE_COVID_END = "2020-01-01"
 importlib.reload(data_model)
 
 df = data_model.Data(data=df_processed)
+
+#%%
 ##%
 #df.print_head()
 df[START_DATE_EXPLORATION:].plot_seasonal(plot_type='daily', col_name='use_transfused', fig_location=IMAGES_PATH_EXPLORATION)
@@ -363,6 +368,30 @@ while i <= num_differencing:
 
 
 #%% 
+# MARK: COMPARISON
+#----------------------------------------------------------------------------------
+importlib.reload(model)
+importlib.reload(config) #for DEV_START_DATE
+
+comp = model.ModelComparison(df)
+
+comp.set_column()
+comp.set_dates_mean()
+comp.set_forecast_window()
+comp.set_single_value()
+
+comp.print_parameters()
+
+comp.model_run()
+
+comp.result
+
+comp.get_error_values()
+
+
+for col in comp.result.columns:
+    plt.plot(comp.result.loc["2024-05-01":"2024-12-31", col], linewidth=0.5, label=col)
+#%% 
 # MARK: ARIMA
 #----------------------------------------------------------------------------------
 
@@ -374,16 +403,64 @@ arima = model.ModelArima(df)
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-arima.set_validation_rolling_window(train_percent=0.975, test_len=7, start_date=config.DEV_START_DATE) #TODO: change date/remove it
+arima.set_validation_rolling_window(train_percent=0.995, test_len=7, start_date=config.DEV_START_DATE) #TODO: change date/remove it
 
 arima.set_model_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
-arima.model_run(col="use_transfused")
+arima.model_run(col=config.COLUMN)
 
 #Try out stepwise error measurements (now only mae):
 arima.plot_stepwise(plot_type="forecast") #forecast
+arima.plot_stepwise(plot_type="forecast difference") #forecast
 arima.plot_stepwise(df=arima.stepwise_forecast_difference, plot_type="difference", comparison=False) #forecast difference
 arima.plot_stepwise_forecast_errors()
 print(arima.stepwise_forecast_errors)
+
+
+#%% MARK: GRID SEARCH (ARIMA)
+#TODO: ARIMA with grid search:
+#dummy var names for now (partly)
+
+arima_gs = model.ModelArima(df)
+arima_gs_result = {}
+grid_params = {
+    col: (config.COLUMN),
+    p: [0, 7],
+    d: [0, 3],
+    q: [0, 7],
+    "rolling_type" : ["expanding", "rolling"]
+}
+#TODO: convert setted grid min/max/choice to list of possible values
+#idea: min/max always as set, rest as list.
+grid_params_list = convert_gs_to_list(grid_params)
+
+
+for count, grid in enumerate(grid_params_list): #suppose this iterates over our min/max or possible values
+    params = grid #store parameters
+
+    if grid["rolling_type"] == "expanding":
+        arima.set_validation_expanding(df)
+    elif grid["rolling_type"] == "rolling":
+        arima.set_validation_rolling(df)
+
+    #run model with params:
+    arima.set_model_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
+    arima.model_run(col=config.COLUMN)
+
+    #save values
+    res_fc = arima.forecastt #store forecast result
+    res_og = arima.actual_values #store which actual values where used for calc errors
+    res_errors = arima_gs.stepwise_forecast_errors
+
+    #store in dict
+    arima_gs_result.append(
+        count: {
+            "params": params,
+            "forecast":res_fc,
+            "actual":res_og,
+            "errors":res_errors
+        }
+    )
+
 
 
 #%%
@@ -404,7 +481,7 @@ sarima.set_validation_rolling_window(train_percent=0.9750, test_len=7, start_dat
 sarima.set_exogenous_vars(exog_cols=["tlmin", "workday_enc", "holiday_enc", "day_of_week", "day_of_year"])
 sarima.set_model_parameters(7, 1, 1, 0,0,2,7) #7,1,1, #TODO: add hyperparam grid
 
-sarima.model_run(pred_col="use_transfused")#, exog=["PAT_BG_0", "PAT_BG_A", "PAT_BG_AB", "PAT_BG_B"])
+sarima.model_run(pred_col=config.COLUMN)#, exog=["PAT_BG_0", "PAT_BG_A", "PAT_BG_AB", "PAT_BG_B"])
 
 #Try out stepwise error measurements (now only mae):
 sarima.plot_stepwise(plot_type="forecast") #forecast
@@ -430,7 +507,7 @@ start_date = pd.to_datetime("2020-01-01")
 split_date = pd.to_datetime("2023-12-31")
 end_date = pd.to_datetime("2024-12-31")
 
-pred_col = "use_transfused"
+pred_col = config.COLUMN
 regressor_cols = ['EC_BG_0', 'EC_BG_A', 'EC_BG_AB', 'EC_BG_B', 'EC_RH_Rh_negative',
        'EC_RH_Rh_positive', 'EC_TYPE_EKF', 'EC_TYPE_EKFX', 'EC_TYPE_Other',
        'PAT_BG_0', 'use_discarded', 'use_expired', 'use_transfused']
@@ -451,7 +528,7 @@ test_df.info()
 prophet_train = (
     train_df[pred_col]
     .reset_index()
-    .rename(columns={"date":"ds", "use_transfused":"y"})
+    .rename(columns={"date":"ds", config.COLUMN:"y"})
     )
 
 prophet_train.info()

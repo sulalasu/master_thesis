@@ -1,5 +1,7 @@
 #TODO: is it necessary to load the modules here?
 from src import data_model
+from src import config
+
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
@@ -19,7 +21,7 @@ class Model:
 
 
     def __init__(self, data: data_model.Data): #TODO: maybe add configuration?
-        # TODO: change parameter of model to be of 'Data' type 
+        # TODO: change parameter of model to be of 'Data' type
         self.data = data
 
         #Train/Test sets:
@@ -62,7 +64,7 @@ class Model:
 
         #Dont think is needed:
         #self.params = None #rename; prob better in base class.
-        
+
 
 
         #Decompositions: (s.u., gehört eig. nciht hierher)
@@ -77,36 +79,36 @@ class Model:
     # Helper functions
     # MARK: HELPERS
     #------------------------------------------------------------------------------------------------
-    
+
     #------------------------------------------------------------------------------------------------
     # SETTERS
     # MARK: Setters
 
     def set_validation_expanding_window(self, train_percent: float, test_len: int, start_date: str=None):
         """
-        Set parameters of validation_config variable (doesnt RUN validation) and create a 
+        Set parameters of validation_config variable (doesnt RUN validation) and create a
         set of indices (list of tuples) for train/test split by calling make_validation_set().
         There is only one config variable, so using setter again or for another method (rolling window)
         overwrites this setting!
 
-        Expanding window validation means, that an initial train set is expanded, 
+        Expanding window validation means, that an initial train set is expanded,
         by x days each iteration (here x = 1 day).
 
 
         Args:
         :param train_percent: Percentage of whole dataset, that should be used as initial training set
-        :type train_percent: float 
+        :type train_percent: float
         :param test_len: Number of days, to test into the future
         :type test_len: int
         :param start_date: Optional str in date format YYYY-MM-DD, to set start date of data set. Default None.
         :type start_date: str (, optional)
-        
+
         :raises ValueError: if bla bla bla
-        
+
         :return: Nothing, but sets validation_config member variable.
         :rtype: None
         """
-        
+
         if not start_date:
             start_date = self.data.index.min()
         else:
@@ -129,7 +131,7 @@ class Model:
 
     def set_validation_rolling_window(self, train_percent: float, test_len: int, start_date: str=None):
         """
-        Set parameters of validation_config variable (doesnt RUN validation) and create a 
+        Set parameters of validation_config variable (doesnt RUN validation) and create a
         set of indices (list of tuples) for train/test split by calling make_validation_set().
         There is only one config variable, so using setter again or for another method (expanding window)
         overwrites this setting!
@@ -140,12 +142,12 @@ class Model:
         Parameters
         ----------
         train_percent : float
-            float between 0-1, sets percentage of data to assign 
+            float between 0-1, sets percentage of data to assign
             as training set.
         test_len : int
             Number of days to set as test set.
         start_data : str, optional
-            Optional str in date format YYYY-MM-DD, to set 
+            Optional str in date format YYYY-MM-DD, to set
             start date of data set. Default None.
         """
         if not start_date:
@@ -168,12 +170,12 @@ class Model:
 
     def set_validation_single_split(self, train_percent: float, start_date: str=None):
         """
-        Set parameters of validation_config variable (doesnt RUN validation) and create a 
+        Set parameters of validation_config variable (doesnt RUN validation) and create a
         set of indices (list of tuples) for train/test split by calling make_validation_set().
         There is only one config variable, so using setter again or for another method (rolling window)
         overwrites this setting!
 
-        Single split validation means, that whole dataset is split a single time into 
+        Single split validation means, that whole dataset is split a single time into
         train and test sets.
 
         Parameters
@@ -223,7 +225,7 @@ class Model:
         train_start = self.validation_config["start_date"] #is (should be) pd datetime
         train_end = self.get_split_index_by_prct(start_date=self.validation_config["start_date"], prct=self.validation_config["train_percent"])
         #train_len = train_end - train_start
-        
+
         test_start = train_end + pd.DateOffset(1)
 
         if self.validation_config["type"] == "single split":
@@ -259,21 +261,21 @@ class Model:
 
             case "single split":
                 train_test_indices.append((train_start, train_end, test_start, test_end))
-        
+
         self.validation_sets = train_test_indices
 
 
 
     def add_stepwise_forecasts(self):
         """
-        Add stepwise_forecasts variable: dictionary containing number of keys in the length of test_len, 
-        with values as pandas Series of forecasted values for respective days to look ahead. 
-        E.g. if test_len (in rolling/expanding window) 
-        is 7 days, keys "1" to "7" are added, containing the predicted value for predictions 
+        Add stepwise_forecasts variable: dictionary containing number of keys in the length of test_len,
+        with values as pandas Series of forecasted values for respective days to look ahead.
+        E.g. if test_len (in rolling/expanding window)
+        is 7 days, keys "1" to "7" are added, containing the predicted value for predictions
         as far into the future as the key.
         Used for plotting and comparing, how well the prediction works into the future.
 
-        Returns nothing, sets self.stepwise_forecasts as dataframe with days ahead as 
+        Returns nothing, sets self.stepwise_forecasts as dataframe with days ahead as
         columns ("Days ahead: [val]") and prediction_mean as value/columns. Datetime index
         """
         #TODO: Fix wrong results: days ahead: 1 should have data until the end
@@ -285,23 +287,23 @@ class Model:
                 step_forecasts = pd.Series()
                 for pred in self.predictions:
                     step_forecasts = pd.concat([step_forecasts, pred["Prediction"].iloc[[step-1]]])
-                
+
                 step_forecasts.sort_index(inplace=True)
                 if step == 1:
                     self.stepwise_forecasts = step_forecasts.to_frame()
                 else:
                     self.stepwise_forecasts = pd.concat([self.stepwise_forecasts, step_forecasts], axis=1)
-        
+
                 #Rename last col to string of days to look ahead:
                 self.stepwise_forecasts.columns = [*self.stepwise_forecasts.columns[:-1], f"Days ahead: {step}"]
-                
+
 
     #NOTE: not in use currently
     def split_by_percentage(self, percent: float=0.33, start_date=None):
         """
-        percent = percent to assign as train data. 
+        percent = percent to assign as train data.
         """
-        
+
         if percent >= 1 or percent <= 0:
             raise Exception(f"Training/test data ratio: test size: {percent}) must be float smaller than 1 (should be >0.5)")
 
@@ -311,44 +313,17 @@ class Model:
 
 
 
-    #------------------------------------------------------------------------------------------------
-    # Getters
-    # MARK: Getters
-    def get_validation_type(self):
-        print("Validation type:", self.validation_type["type"])
-
-
-
-    def get_split_index_by_prct(self, start_date, prct: float=0.77):
-        """
-        returns datetime index of split position.
-        """
-        df_len = len(self.data[start_date:])
-        if prct <= 0 or prct > 1:
-            raise ValueError("must be between 0 and 1, not 0")
-        if df_len <= 2:
-            raise ValueError("df must be longer than 2 rows")
-        
-        idx = int(len(self.data[start_date:]) * prct)
-        split_date = self.data[start_date:].index[idx]
-
-        print(f"Split index/date with start_date ({start_date}: \n {split_date})")
-
-        return split_date
-
-
-
     def add_stepwise_errors(self, col_pred: str="count"):
-        """Calculate stepwise errors for stepwise forecasts and adds it to model variable. 
+        """Calculate stepwise errors for stepwise forecasts and adds it to model variable.
         That means that for x days ahead, for all predicted values, the supplied error is calculated.
-        Currently Supported error metrics: MAE, MAPE, MedAE (Median absolute error), 
+        Currently Supported error metrics: MAE, MAPE, MedAE (Median absolute error),
         MaxError, RMSE, MSE
         Args:
             col_pred (str, optional): Column name of original (test) data which is forecast, to compare preiction with
         """
         #initialize empty df with structure like stepwise_forecasts (cols, indices, no content)
         forecast_steps = self.stepwise_forecasts.columns
-        errors = ["ME", "MAE", "MedAE", "MAPE", "RMSE", "MASE", "MaxError"] 
+        errors = ["ME", "MAE", "MedAE", "MAPE", "RMSE", "MASE", "MaxError"]
 
         self.stepwise_forecast_errors = pd.DataFrame(columns=errors, index=forecast_steps)
 
@@ -359,7 +334,7 @@ class Model:
 
             y_pred = self.stepwise_forecasts.loc[min_date:max_date, col]
             y_true = self.data.loc[min_date:max_date, col_pred]
-        
+
             self.stepwise_forecast_errors.loc[col, "ME"] = np.median(y_pred - y_true) #median error -- shows bias (positive or negative)
             self.stepwise_forecast_errors.loc[col, "MAE"] = metrics.mean_absolute_error(y_pred=y_pred, y_true=y_true)
             self.stepwise_forecast_errors.loc[col, "MedAE"] = metrics.median_absolute_error(y_pred=y_pred, y_true=y_true)
@@ -369,12 +344,12 @@ class Model:
             self.stepwise_forecast_errors.loc[col, "MaxError"] = metrics.max_error(y_pred=y_pred, y_true=y_true)
 
     def add_stepwise_difference(self, col_pred: str="count"):
-        """Get a df with the difference between the stepwise forecasted values and 
+        """Get a df with the difference between the stepwise forecasted values and
         the actual values. By default it subtracts 'count' from the daily stepwise
         forecasted values and stores them in a new df called 'stepwise_forecast_difference'.
 
         Args:
-            col (str, optional): Column name that should be subtracted from the forecasted values. 
+            col (str, optional): Column name that should be subtracted from the forecasted values.
             Defaults to "count".
         """
         y_true = self.data[col_pred].loc[self.stepwise_forecasts.index]
@@ -424,17 +399,40 @@ class Model:
 
     def run_MAE():
         pass
-    
+
     def run_MAPE():
         pass
 
     def run_MSRE():
         pass
 
+    #------------------------------------------------------------------------------------------------
+    # Getters
+    # MARK: Getters
+    def get_validation_type(self):
+        print("Validation type:", self.validation_type["type"])
 
-    
 
-    #UNCLEAR: add extra plotting here or just use the functions? 
+
+    def get_split_index_by_prct(self, start_date, prct: float=0.77):
+        """
+        returns datetime index of split position.
+        """
+        df_len = len(self.data[start_date:])
+        if prct <= 0 or prct > 1:
+            raise ValueError("must be between 0 and 1, not 0")
+        if df_len <= 2:
+            raise ValueError("df must be longer than 2 rows")
+
+        idx = int(len(self.data[start_date:]) * prct)
+        split_date = self.data[start_date:].index[idx]
+
+        print(f"Split index/date with start_date ({start_date}: \n {split_date})")
+
+        return split_date
+
+
+    #UNCLEAR: add extra plotting here or just use the functions?
 
     #------------------------------------------------------------------------------------------------
     # Plotters
@@ -443,7 +441,7 @@ class Model:
     def plot_stepwise(self, plot_type: str, df: pd.DataFrame=None, comparison=True, comparison_col="count", days=None):
         """Plot the stepwise predictions or difference against actual/true values.
         i.e. plot e.g. one-day-ahead prediction against test set, two-day-ahead, etc.
-        Defaults to plot stepwise_forecasts data, but can also be used for stepwise_forecast_difference 
+        Defaults to plot stepwise_forecasts data, but can also be used for stepwise_forecast_difference
         (which is alos stepwise).
         """
         if df is None:
@@ -454,7 +452,7 @@ class Model:
 
         colors = iter(cm.rainbow(np.linspace(1, 0.6, len(df.columns))))
 
-        #original_data = 
+        #original_data =
         plt.figure(figsize=(14,7))
 
         if plot_type == "forecast difference":
@@ -464,7 +462,7 @@ class Model:
                 df[col] = comparison_data - df[col]
                 print("comparison: ", col, "\n", comparison_data)
                 print("subtracted: ", col, "\n", df[col])
-    
+
 
         if comparison == True:
             plot_start = df.index.min() - pd.DateOffset(60) #first element of first key
@@ -482,8 +480,8 @@ class Model:
 
 
     def plot_stepwise_forecast_errors(self):
-        #TODO: change colors to be more different. 
-        # TODO: maybe add error names directly to lines instead of having a legend 
+        #TODO: change colors to be more different.
+        # TODO: maybe add error names directly to lines instead of having a legend
         print(self.stepwise_forecast_errors.columns)
         print(len(self.stepwise_forecast_errors.columns))
         colors = iter(cm.gist_ncar(np.linspace(1, 0, len(self.stepwise_forecast_errors.columns))))
@@ -498,7 +496,7 @@ class Model:
         plt.show()
 
 
-    
+
 
 
 
@@ -506,31 +504,42 @@ class Model:
 # Individual Models:
 #--------------------------------------------------------------------
 
-# MARK: Comparison
 # Comparison Model
 # single value
 # naive/persistent (n-1)
 # mean
 # seasonal naive (n-7)
-#
+
+
+# MARK: Comparison Model
 class ModelComparison(Model):
     class_name = "Comparison"
 
-    def __init__(self, data, single_value: int):
+    def __init__(self, data):
         super().__init__(data)
-        self.forecast_window = None
         self.result = None #Dataframe
 
-        #individual comp. models (dataframes)
-        self.single_value = None
-        self.naive = None
-        self.mean = None
-        self.seasonal_naive = None
+        #Needed parameters:
+        self.col = None #throughout all runs
+        self.single_value = None #for single_value
+        self.forecast_window = None #for plotting
+        self.start_date = None #for mean
+        self.end_date = None #for mean
 
+        #individual comp. models (dataframes)
+        self.single_value_df = None
+        self.naive_df = None
+        self.mean_df = None
+        self.seasonal_naive_df = None
+
+
+    #------------------------------------------------------------------------------------------------
+    # Setters/Getters
+    #------------------------------------------------------------------------------------------------
 
     def set_forecast_window(self, days=14):
         """This is for plotting purposes only. Since models have forecast
-        window, with days-ahead plotting/stats, i want to keep this 
+        window, with days-ahead plotting/stats, i want to keep this
         model with the same window.
 
         Args:
@@ -540,24 +549,202 @@ class ModelComparison(Model):
         self.forecast_window = days
 
 
+    def set_column(self, col=config.COLUMN):
+        """Sets column of interest, used in all comparison models. I want to set it in a single place for
+        coherence reasons. if special column needed, you can just use a single 'run_' funciton. also, later i can
+        still see the column that was used.
+
+        Args:
+            col (str, optional): Column name to use as base for naive.
+               Defaults to config.COLUMN, which is a variable name used in main.py for column of interest.
+        """
+
+        self.col = col
+
+
+
+    def set_single_value(self, single_val=100):
+        """Sets column of interest, used in all comparison models. I want to set it in a single place for
+        coherence reasons. if special column needed, you can just use a single 'run_' funciton. also, later i can
+        still see the column that was used.
+
+        Args:
+            single_val (int, optional): Integer to set as comparison.
+        """
+
+        self.single_value = single_val
+
+    def set_dates_mean(self, start_date: str=None, end_date: str=None, col=config.COLUMN):
+        """Set start and end dates for run_mean(). If not set, defaults to min/max indices of self.data
+
+        Args:
+            start_date (str): Start date for run_mean(). Date as string in format "YYYY-MM-DD"
+            end_date (str): Start date for run_mean(). Date as string in format "YYYY-MM-DD"
+            col (str, optional): Which column to use for min/max date. (i think this could be removed)
+        """
+        if not start_date:
+            self.start_date = self.data[col].index.min()
+        else:
+            self.start_date = start_date
+
+        if not end_date:
+            self.end_date = self.data[col].index.max()
+        else:
+            self.end_date = end_date
+
+
+
+    def get_error_values(self):
+
+        self.result_error_vals = pd.DataFrame({
+            "error_val" : ["rmse", "mape", "mae", "medae", "maxerr"]
+        })
+
+        for column in self.result.columns[1:]: #first is og column
+                comparison_col = self.result.dropna(subset=[column, self.col])[column]
+                original_col = self.result.dropna(subset=[column, self.col])[self.col]#self.col = test data
+            
+                rmse = metrics.root_mean_squared_error(comparison_col, original_col)
+                mape = metrics.mean_absolute_percentage_error(comparison_col, original_col)
+                mae = metrics.mean_absolute_error(comparison_col, original_col)
+                medae = metrics.median_absolute_error(comparison_col, original_col)
+                maxerr = metrics.max_error(comparison_col, original_col)
+                
+                self.result_error_vals[column] = [rmse, mape, mae, medae, maxerr]
+
+                print(column, ":\n")
+                print("RMSE",  rmse)
+                print("MAPE", mape)  
+                print("MAE", mae)
+                print("MedAE", mae)
+                print("MaxErr", maxerr)
+
+
+
+
+    def print_parameters(self):
+        print(f"""
+            Column: {self.col}
+            single val: {self.single_value}
+            fc window: {self.forecast_window}
+            start_date: {self.start_date}
+            end_date: {self.end_date}
+              """)
+
+    #------------------------------------------------------------------------------------------------
+    # Models/Composite fct
+    #------------------------------------------------------------------------------------------------
+
+
     def model_run(self):
+        """Runs all comparison models (single value, naive, mean, seasonal naive) and creates a df called 'result',
+        which has models as column names.
+        You're not supposed to pass arguemnts with this function, use setters for that.
+
+        """
+        #initiate 'result'
+        self.result = self.data[[config.COLUMN]]
+
         #Run all comparison models
-        pass
+        self.result["single_value"] = self.run_single_value(single_value=self.single_value, model_run=True)
+        self.result["naive"] = self.run_naive(col=self.col, model_run=True)
+        self.result["mean"] = self.run_mean(col=self.col, model_run=True)
+        self.result["seasonal_naive"] = self.run_seasonal_naive(col=self.col, model_run=True)
 
-    def run_single_value(self):
 
-        pass
 
-    def run_naive(self):
-        pass
+    def run_single_value(self, single_value: int=100, model_run=False):
+        """Sets ('runs calculation') for single value comparison model
 
-    def run_mean(self):
-        pass
+        Args:
+            single_value (int, optional): Value to be set. Defaults to 120.
+            model_run (bool): If true, then function is ran inside of self.model_run(), so it
+            returns the new column.
+        """
+        self.data["pred_single_val"] = single_value
 
-    def run_seasonal_naive(self):
-        pass
+        if model_run:
+            return self.data["pred_single_val"]
 
-    
+
+
+    def run_naive(self, col=config.COLUMN, model_run=False):
+        """Creates Naive (also called Persistance/persistent) forecast. that is to just take the last
+        value available value to forecast for the next one. So if i know todays value X, then i say tomorrow its also x.
+        Since we work with train/test data, i dont need to implement rolling/expanding window to calulcate this, it wouldnt
+        make a difference
+
+        Args:
+            col (str, optional): Column name to use as base for naive.
+               Defaults to config.COLUMN, which is a variable name used in main.py for column of interest.
+            model_run (bool): If true, then function is ran inside of self.model_run(), so it
+            returns the new column.
+
+        """
+        if col == None:
+            col = self.col
+
+        self.data["naive"] = self.data[col].shift(1)
+
+        if model_run:
+            return self.data["naive"]
+
+
+
+    def run_mean(self, start_date: str=None, end_date: str=None, col=config.COLUMN, model_run=False):
+        """Calculate the mean of historical data and use that as comparison.
+        This would probably slightly profit from using rolling window, to only use more proximate data.
+        But for simplicity reasons, i dont implement this.
+        Caluclates mean for selected column, based on start_date to end_date period (or min/max dates if not passed).
+        Sets this value for whole dataset, not just the passed period.
+
+        Args:
+            start_date (str, optional): Type start date for mean calculation as "YYYY-MM-DD". Defaults to min date of 'col'.
+            end_date (str, optional): Type start date for mean calculation as "YYYY-MM-DD". Defaults to min date of 'col'.
+            col (str, optional): Column name to use as base for naive.
+                Defaults to config.COLUMN, which is a variable name used in main.py for column of interest.
+            model_run (bool): If true, then function is ran inside of self.model_run(), so it
+            returns the new column.
+
+        """
+        if col == None:
+            col = self.col
+
+        if not start_date:
+            start_date = self.data[col].index.min()
+        elif not end_date:
+            end_date = self.data[col].index.max()
+
+        data_mean = self.data.loc[start_date:end_date, col].mean()
+
+        self.data["pred_mean"] = data_mean
+
+        if model_run:
+            return self.data["pred_mean"]
+
+
+    def run_seasonal_naive(self, col=config.COLUMN, n=7, model_run=False):
+        """Basically the same as naive (run_naive member function), but instead of taking the last value, take n-x values before.
+        Since we have weekly seasonality, always take value from 7 days ago, so for monday, take last mondays value etc.
+
+        Args:
+            col (str, optional): Column name to use as base for naive.
+                Defaults to config.COLUMN, which is a variable name used in main.py for column of interest.
+            n (int, optional): How many rows/days before to use. For us it should be one week ago (7 days). Defaults to 7.
+            model_run (bool): If true, then function is ran inside of self.model_run(), so it
+            returns the new column.
+            """
+        if col == None:
+            col = self.col
+
+        self.data["seasonal_naive"] = self.data[col].shift(n)
+
+        if model_run:
+            return self.data["seasonal_naive"]
+
+
+
+
 
 
 
@@ -575,7 +762,7 @@ class ModelArima(Model):
     #------------------------------------------------------------------------------------------------
     # Setters
     #------------------------------------------------------------------------------------------------
-    
+
     def set_model_parameters(self, p: int=1, d: int=1, q: int=1):
         self.p = p
         self.d = d
@@ -589,7 +776,7 @@ class ModelArima(Model):
         add_stepwise_forecasts()
 
         Args:
-            col (str, optional): column to make model and run prediction for. 
+            col (str, optional): column to make model and run prediction for.
             Defaults to "count".
             print_fit_summary (bool, optional): If true, prints the summary for the fit().
             Defaults to True
@@ -598,7 +785,7 @@ class ModelArima(Model):
             Only relevant if print_fit_summary argument is true. defaults to True.
             days (int, optional): Manually set days to look ahead (steps). Normally supplied via
             validation_config by setter functions for rolling/expanding window or single split.
-            Defaults to None, which will then use abovementioned value. 
+            Defaults to None, which will then use abovementioned value.
         """
 
         self.make_model(col=col)
@@ -610,7 +797,7 @@ class ModelArima(Model):
         #Get stepwise values:
         self.add_stepwise_forecasts()
         self.add_stepwise_errors(col_pred=col)
-        self.add_stepwise_difference(col_pred=col) 
+        self.add_stepwise_difference(col_pred=col)
 
 
 
@@ -618,27 +805,27 @@ class ModelArima(Model):
     def make_model(self, col: str):
         """
         create model with trainign data + (hyper)parameters
-        
+
         Parameters
         ----------
-        col : string 
-            column (target) to use for for univariate forecasting 
+        col : string
+            column (target) to use for for univariate forecasting
         """
         #Important!
         self.models = []
-        
+
         #TODO: set up split AND validation
         # i think for validation, best option to have a list of lists with train_start, train_end, test_start, test_end
         # days (datetime), which i can cycle here (make_model, fit, print_fit_summary, predict), which is just
         # inplace filtering of df, so i dont have to store multiple dfs!
         series = self.data[col]
         #TODO: !use SARIMAX instead of ARIMA!
-        
+
         for train_set in self.validation_sets:
             #Add exogenous, check for enforce_stationarity, enforce_invertibility
             self.models.append(ARIMA(
-                endog=series[train_set[0] : train_set[1]], 
-                order=(self.p, self.d, self.q))) 
+                endog=series[train_set[0] : train_set[1]],
+                order=(self.p, self.d, self.q)))
 
 
     def fit(self):
@@ -720,11 +907,11 @@ class ModelSarimax(Model):
     #------------------------------------------------------------------------------------------------
     # Setters
     #------------------------------------------------------------------------------------------------
-    
+
     def set_model_parameters(
-            self, p: int=1, d: int=1, q: int=1, 
+            self, p: int=1, d: int=1, q: int=1,
             P: int=1, D: int=1, Q: int=1, m: int=7):
-        
+
         self.p = p
         self.d = d
         self.q = q
@@ -734,9 +921,9 @@ class ModelSarimax(Model):
         self.Q = Q
         self.m = m
 
-       
+
     def set_exogenous_vars(self, exog_cols: list):
-        """Set columns to use for exogenous variables with SARIMAX. 
+        """Set columns to use for exogenous variables with SARIMAX.
 
         Args:
             exog_cols (list): List of strings containing column names for exog vars (in self.data)
@@ -753,18 +940,18 @@ class ModelSarimax(Model):
             for col in exog_cols:
                 if col not in self.data.columns:
                     raise ValueError(f"{col} not present df's columns: {self.data.columns}")
-                
+
         self.exog_cols = exog_cols
 
 
 
     #composite function:
-    def model_run(self, pred_col: str="count", print_fit_summary=True, last_only=True, days=None): #exog: list=None, 
+    def model_run(self, pred_col: str="count", print_fit_summary=True, last_only=True, days=None): #exog: list=None,
         """Composite function that combines make_model, fit(), print_fit_summary(), predict(),
         add_stepwise_forecasts()
 
         Args:
-            pred_col (str, optional): column to make model and run prediction for. 
+            pred_col (str, optional): column to make model and run prediction for.
             Defaults to "count".
             print_fit_summary (bool, optional): If true, prints the summary for the fit().
             Defaults to True
@@ -773,7 +960,7 @@ class ModelSarimax(Model):
             Only relevant if print_fit_summary argument is true. defaults to True.
             days (int, optional): Manually set days to look ahead (steps). Normally supplied via
             validation_config by setter functions for rolling/expanding window or single split.
-            Defaults to None, which will then use abovementioned value. 
+            Defaults to None, which will then use abovementioned value.
         """
 
         self.make_model(pred_col=pred_col)
@@ -785,22 +972,22 @@ class ModelSarimax(Model):
         #Get stepwise values:
         self.add_stepwise_forecasts()
         self.add_stepwise_errors(col_pred=pred_col)
-        self.add_stepwise_difference(col_pred=pred_col) 
+        self.add_stepwise_difference(col_pred=pred_col)
 
 
 
     def make_model(self, pred_col: str):
         """
         create model with trainign data + (hyper)parameters
-        
+
         Parameters
         ----------
-        pred_col : string 
-            columns (target) to use for for univariate forecasting 
+        pred_col : string
+            columns (target) to use for for univariate forecasting
         """
         #Important!
         self.models = []
-        
+
         #TODO: set up split AND validation
         # i think for validation, best option to have a list of lists with train_start, train_end, test_start, test_end
         # days (datetime), which i can cycle here (make_model, fit, print_fit_summary, predict), which is just
@@ -808,23 +995,23 @@ class ModelSarimax(Model):
         series = self.data[pred_col]
         #TODO: !use SARIMAX instead of ARIMA!
 
-        
+
         if self.exog_cols == None:
             for train_set in self.validation_sets:
                 self.models.append(SARIMAX(
-                    endog=series[train_set[0] : train_set[1]], 
+                    endog=series[train_set[0] : train_set[1]],
                     order=(self.p, self.d, self.q),
-                    seasonal_order=(self.P, self.D, self.Q, self.m))) 
-                
+                    seasonal_order=(self.P, self.D, self.Q, self.m)))
+
         elif self.exog_cols != None:
             # exogenous = self.data[exog]
             for train_set in self.validation_sets:
                 self.models.append(SARIMAX(
-                    endog=series[train_set[0] : train_set[1]], 
-                    exog=self.data.loc[train_set[0]:train_set[1], self.exog_cols], 
-                    # exog=exogenous[train_set[0] : train_set[1]], 
+                    endog=series[train_set[0] : train_set[1]],
+                    exog=self.data.loc[train_set[0]:train_set[1], self.exog_cols],
+                    # exog=exogenous[train_set[0] : train_set[1]],
                     order=(self.p, self.d, self.q),
-                    seasonal_order=(self.P, self.D, self.Q, self.m))) 
+                    seasonal_order=(self.P, self.D, self.Q, self.m)))
 
 
 
@@ -880,13 +1067,13 @@ class ModelSarimax(Model):
             )
 
 
-    
+
 
 
     #------------------------------------------------------------------------------------------------
     # Setters
     #------------------------------------------------------------------------------------------------
-    
+
     def print_params(self):
         print(f"p,d,q: {self.p}, {self.d}, {self.q}\nP,D,Q,m: {self.P},{self.D},{self.Q}{self.m}\nExogenous columns: {self.exog_cols}")
 
