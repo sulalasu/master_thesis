@@ -268,6 +268,7 @@ class Model:
         Returns nothing, sets self.stepwise_forecasts as dataframe with days ahead as 
         columns ("Days ahead: [val]") and prediction_mean as value/columns. Datetime index
         """
+        #TODO: Fix wrong results: days ahead: 1 should have data until the end
 
         #not run if single split validation (has no test_len):
         if self.validation_config["test_len"]:
@@ -337,20 +338,28 @@ class Model:
         if df is None:
             df = self.stepwise_forecasts
 
-        plot_start = df.index.min() - pd.DateOffset(60) #first element of first key
-        plot_end = df.index.max()#self.stepwise_forecasts.keys()[-1][-1] #last element of last key
+        comparison_data = self.data[comparison_col]
 
 
         colors = iter(cm.rainbow(np.linspace(1, 0.6, len(df.columns))))
 
         #original_data = 
         plt.figure(figsize=(14,7))
+
         if plot_type == "forecast difference":
             plt.axhline(y= 0, linestyle = "dashed", color="lightgrey")
+            for col in df.columns:
+                print("original: ", col, "\n", df[col])
+                df[col] = comparison_data - df[col]
+                print("comparison: ", col, "\n", comparison_data)
+                print("subtracted: ", col, "\n", df[col])
     
 
         if comparison == True:
+            plot_start = df.index.min() - pd.DateOffset(60) #first element of first key
+            plot_end = df.index.max()#self.stepwise_forecasts.keys()[-1][-1] #last element of last key
             plt.plot(self.data[plot_start:plot_end][comparison_col], label="original data")
+
 
         for col in df.columns:
             plt.plot(df[col], label=col, color=next(colors))
@@ -533,7 +542,7 @@ class ModelComparison(Model):
 
     def run_seasonal_naive(self):
         pass
-    
+
     
 
 
