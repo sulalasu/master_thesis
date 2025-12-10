@@ -45,6 +45,8 @@ class Model:
         #TODO: save model runs as well as their state (parameters etc.)
         # so they can be accessed later. save to file.
 
+        self.alpha = None #for prediction interval
+
         #Forecast errors (stepwise, so for forecast 1 day ahead, 2 days ahead, etc.):
         #Values are pd.Dataframes, with stepwise errors for forecast timeframe:
         # ME -- Median error (shows model bias to be positive or negative)
@@ -197,6 +199,11 @@ class Model:
         }
 
         self.make_validation_set()
+
+    def set_alpha_prediction(self, alpha=0.05):
+        # Even if alpha is not explicitly set (self.alpha==None), 
+        # then get_prediction is coded, to set alpha inside fct by default to 0.05
+        self.alpha = alpha
 
 
     #------------------------------------------------------------------------------------------------
@@ -865,7 +872,13 @@ class ModelArima(Model):
                 .rename(columns={"predicted_mean":"Prediction"})
             )
 
-    def get_prediction(self, days=None, alpha: int=0.05):
+    def get_prediction(self, days=None, alpha: int=None):
+
+        if self.alpha == None:
+            alpha = 0.05
+        elif self.alpha != None:
+            alpha = self.alpha
+        
         self.predictions = []
 
         #iterate over both model_fits and validation_sets:
@@ -1050,7 +1063,13 @@ class ModelSarimax(Model):
             self.predictions.append(fit.get_forecast(steps=days))
 
 
-    def get_prediction(self, days=None, alpha: int=0.05):
+    def get_prediction(self, days=None, alpha: int=None):
+
+        if self.alpha == None:
+            alpha = 0.05
+        elif self.alpha != None:
+            alpha = self.alpha
+
         self.predictions = []
 
         #iterate over both model_fits and validation_sets:
