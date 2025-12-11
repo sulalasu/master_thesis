@@ -390,7 +390,11 @@ comp.get_error_values()
 
 
 for col in comp.result.columns:
-    plt.plot(comp.result.loc["2024-05-01":"2024-12-31", col], linewidth=0.5, label=col)
+    if col == "use_transfused":
+        plt.plot(comp.result.loc["2024-01-01":"2024-07-31", col], linewidth=1.5, label=col)
+    else:
+        plt.plot(comp.result.loc["2024-01-01":"2024-07-31", col], linewidth=0.5, label=col)
+    plt.legend()
 #%% 
 # MARK: ARIMA
 #----------------------------------------------------------------------------------
