@@ -26,7 +26,6 @@ print(clean.__file__)
 IMAGE_PATH = "plots/2025_10_10-Plots_for_Meeting/"
 
 
-
 #%%--------------------------------------------------------------------------------
 # MARK: INPUT
 #----------------------------------------------------------------------------------
@@ -456,13 +455,12 @@ for count, grid in enumerate(grid_params_list): #suppose this iterates over our 
     res_errors = arima_gs.stepwise_forecast_errors
 
     #store in dict
-    arima_gs_result.append(
-        count: {
+    arima_gs_result.append({count: {
             "params": params,
             "forecast":res_fc,
             "actual":res_og,
             "errors":res_errors
-        }
+        }}
     )
 
 

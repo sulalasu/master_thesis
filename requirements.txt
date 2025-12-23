@@ -7,6 +7,6 @@ seaborn
 tensorflow
 # plotnine.data
 statsmodels
-dayplot #for daily heatmaps
+#dayplot #for daily heatmaps
 calplot #alternative for daily heatmaps
 holidays

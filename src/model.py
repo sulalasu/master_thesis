@@ -691,7 +691,7 @@ class ModelComparison(Model):
         if col == None:
             col = self.col
 
-        self.data["naive"] = self.data[col].shift(-1)
+        self.data["naive"] = self.data[col].shift(1)
 
         if model_run:
             return self.data["naive"]
@@ -744,7 +744,7 @@ class ModelComparison(Model):
         if col == None:
             col = self.col
 
-        self.data["seasonal_naive"] = self.data[col].shift(-abs(n))
+        self.data["seasonal_naive"] = self.data[col].shift(n)
 
         if model_run:
             return self.data["seasonal_naive"]

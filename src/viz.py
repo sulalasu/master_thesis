@@ -15,7 +15,7 @@ def line_plot(data):
     pass
 
 
-def seasonal_plot(data, plot_type: list[str], col_name = "count"): #New: col_name (from data_model.plot_seasonal)
+def seasonal_plot(data, plot_type: str, col_name = "count"): #New: col_name (from data_model.plot_seasonal)
     #Old version
     # """
     # periods = periods to make seasonal plots for (e.g. week, months)

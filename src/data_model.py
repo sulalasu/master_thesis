@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 import matplotlib
 import seaborn as sns
 import pandas as pd
-import dayplot as dp
+import dayplot as dp 
 import calplot
 
 
@@ -75,7 +75,7 @@ class Data(pd.DataFrame):
         ax[1].set_xlabel('Month', fontsize = 16, fontdict=dict(weight='bold'))
         ax[1].set_ylabel(col_name, fontsize = 16, fontdict=dict(weight='bold'))
 
-    def plot_seasonal(self, plot_type: list[str], col_name: str, fig_location=None):
+    def plot_seasonal(self, plot_type: str, col_name: str, fig_location=None):
         #seasonal plot (days of week, week of year, years)
         # 'column': str name of column to plot. Column values must be float or integer
 
