@@ -5,6 +5,7 @@ pandas
 numpy
 seaborn
 tensorflow
+pmdarima #for auto_arima
 # plotnine.data
 statsmodels
 #dayplot #for daily heatmaps
