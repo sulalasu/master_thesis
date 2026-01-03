@@ -417,13 +417,15 @@ print("MdAE:", metrics.median_absolute_error(y_pred=test["Predictions"], y_true=
 print("MaxE:", metrics.max_error(y_pred=test["Predictions"], y_true=test["use_transfused"]))
 
 
-#%% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
+
+
+
+#%% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # MARK: LSTM PRED INTERVALLS
 # Multivariate LSTM with prediction intervals
-# xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-
-
+# xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 
 #%% load dataset
@@ -460,7 +462,7 @@ scaled_y = scaler_y.transform(y_raw)
 
 #----------------------------------
 # Create sliding window for our data (60days)
-sliding_size = 60 
+sliding_size = 120 
 forecast_days = 3 #days more than on day ahead
 
 # Prep training features
@@ -526,8 +528,11 @@ all_predictions = []
 for _ in range(n_iterations):
     print(f"Iteration {_}")
     all_predictions.append(
-        scaler_y.inverse_transform(model.predict(X_test, verbose=0))
+        scaler_y.inverse_transform(model(X_test, training=True, verbose=0).numpy())
     )
+    # all_predictions.append(
+    #     scaler_y.inverse_transform(model.predict(X_test, verbose=0))
+    # )
 
 all_predictions = np.array(all_predictions)
 
@@ -536,6 +541,16 @@ all_predictions = np.array(all_predictions)
 forecast_mean = np.mean(all_predictions, axis=0)
 forecast_lower = np.percentile(all_predictions, 2.5, axis=0)
 forecast_upper = np.percentile(all_predictions, 97.5, axis=0)
+#%%
+# Test different results for different model runs (result of Dropout + training=true)
+
+# sample = X_test[0:1]
+# out1  = model(sample, training=True).numpy()
+# out2  = model(sample, training=True).numpy()
+
+# print(f"Prediction 1: {out1}")
+# print(f"Prediction 2: {out2}")
+# print(f"Are they exactly the same? {np.array_equal(out1, out2)}")
 
 #%% 
 # Get results into dict of DFs
@@ -548,8 +563,9 @@ for day in range(1, forecast_days + 1):
     day_label = f"Day_{day}"
 
     results[day_label] = pd.DataFrame(
-        index = df_original.index[test_idx_start:test_idx_end]
+        index = data.index[test_idx_start:test_idx_end]
     )
+
 
 # Fill empty (index only) dfs:
 for day in range(forecast_days):
@@ -587,6 +603,20 @@ plt.title(f"Multivariate LSTM: Forecast Horizons for {COLUMN}")
 plt.ylabel("Value")
 plt.legend(loc='upper left')
 plt.show()
+
+#%%
+# Error values:
+
+print("LSTM multivariate with Prediction intervals (not shown)")
+print("RMSE:", metrics.root_mean_squared_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+print("MAPE:", metrics.mean_absolute_percentage_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+print("MAE: ", metrics.mean_absolute_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+print("MdAE:", metrics.median_absolute_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+print("MaxE:", metrics.max_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+
+
+
+
 
 # day_idx = 0
 # time_steps = np.arange(forecast_days)
