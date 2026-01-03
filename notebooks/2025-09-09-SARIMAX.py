@@ -30,7 +30,7 @@ COLUMN = "use_transfused" #column of interest (Y)
 #---------------------------------------
 #Fixed values:
 
-START_DATE = "2022-05-01"
+START_DATE = "2021-05-01"
 END_DATE = "2025-05-01"
 plt.rcParams['figure.dpi'] = 200
 
@@ -45,7 +45,7 @@ from src import viz
 
 #%%
 #Load cleaned data
-df_original = pd.read_csv("../data/03_transformed/output_transformed.csv")
+df_original = pd.read_csv("data/03_transformed/output_transformed.csv")#../data/03_transformed/output_transformed.csv")
 df_original = df_original.set_index("date")
 df_original.index = pd.to_datetime(df_original.index)
 
@@ -679,7 +679,7 @@ print("MaxE",   metrics.max_error(test_df[COLUMN], prediction_sarimax3["Predicti
 
 #%%
 # ---------------------------------------------------------#
-#                         LSTM NEU                         #
+# MARK:                   LSTM NEU                         #
 # ---------------------------------------------------------#
 #without exogenous (atm)
 
@@ -747,7 +747,7 @@ training_data_len = int(np.ceil(len(dataset) * 0.95)) # 95% of dataset
 
 # Preprocessing stages
 scaler = StandardScaler()
-scaled_data = scaler.fit_transform(dataset)#.reshape(-1, 1))
+scaled_data = scaler.fit_transform(dataset) #TODO: this needs to be training only,otherwise information leak into scaler
 
 training_data = scaled_data[:training_data_len] #95% of our data
 
@@ -826,7 +826,7 @@ model_lstm.compile(optimizer="adam", loss="mae", metrics=[keras.metrics.RootMean
 
 
 #%% ------------------------
-#%% Train the model
+# Train the model
 # ------------------------
 
 #epochs = hwo many times is it gonna run to find the best solution
@@ -883,6 +883,171 @@ print("MAPE:", metrics.mean_absolute_percentage_error(y_pred=test["Predictions"]
 print("MAE: ", metrics.mean_absolute_error(y_pred=test["Predictions"], y_true=test["use_transfused"]))
 print("MdAE:", metrics.median_absolute_error(y_pred=test["Predictions"], y_true=test["use_transfused"]))
 print("MaxE:", metrics.max_error(y_pred=test["Predictions"], y_true=test["use_transfused"]))
+
+
+
+
+
+
+
+
+
+
+#%% ------------------------
+# MARK: MULTIVARIATE LSTM
+# ------------------------
+
+
+
+#%% load dataset
+from tensorflow import keras
+from sklearn.preprocessing import StandardScaler
+import seaborn as sns
+
+data = df_original.loc[
+    START_DATE:END_DATE, 
+    [COLUMN, "use_discarded", "use_expired", 'ward_AN',
+     'ward_CH', 'ward_I1', 'ward_I3', 'ward_Other', 'ward_UC', 
+     "workday_enc", "holiday_enc", "day_of_week", "day_of_year", "year", "tlmin", "tlmax"]
+    ]
+data.head()
+data.info()
+data.describe()
+
+col_Y = "use_transfused" #column to predict (y)
+cols_multivariate = ["use_discarded", "used_expired"]
+
+
+
+# ------------------------
+#%% Prepare for multivariate LSTM Model
+# ------------------------
+
+
+
+dataset = data.values # convert to np array
+
+training_data_len = int(np.ceil(len(dataset) * 0.95)) # 95% of dataset
+
+# Preprocessing stages
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(dataset[:training_data_len, :]) #TODO: this needs to be training only,otherwise information leak into scaler
+
+training_data = scaled_data[:training_data_len, :] #95% of our data
+
+#training features
+#what we actually give the model to learn
+# wher x train are the input variables and y train is the variable, the model uses in the training stage
+# to adjust weights and baises to conform to the result (compare result in training to y_train)
+X_train, y_train = [], []
+
+# Create sliding window for our data (60days)
+sliding_size = 60 #
+forecast_days = 0 #days more than on day ahead
+for i in range(sliding_size, len(training_data)):
+    X_train.append(training_data[i - sliding_size:i, :])
+    y_train.append(training_data[i + forecast_days, 0]) #0 = the position of our variable to forecast, is only one variable, as we only forecast COLUMN
+    
+
+#convert lists to np arrays (for tensorflow, needs arrays)
+X_train, y_train = np.array(X_train), np.array(y_train)
+#change to 3D array, tensorflow needs this to work better
+# X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1]))
+
+
+
+#%% ------------------------
+# Build the model
+# ------------------------
+
+# Model with 5 Layers: 
+# LSTM Layer 1 -> Layer 2 -> Layer 3 -> Dense Layer -> Dropout Layer -> Final Layer
+
+
+# Actual model
+memory_cells = 64 #32, 64, 128, etc
+model_lstm_mv = keras.models.Sequential() #mv = multivariate
+
+# LSTM Layers
+
+#this is different in multivariate (mv) lstm: the input shape
+model_lstm_mv.add(keras.layers.LSTM(memory_cells, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])))
+model_lstm_mv.add(keras.layers.LSTM(64, return_sequences=False))
+model_lstm_mv.add(keras.layers.Dense(128, activation="relu"))
+model_lstm_mv.add(keras.layers.Dropout(0.5))
+model_lstm_mv.add(keras.layers.Dense(1)) 
+
+model_lstm_mv.compile(optimizer="adam", loss="mae", metrics=[keras.metrics.RootMeanSquaredError()])
+model_lstm_mv.summary()
+
+
+
+# ------------------------
+#%% Train the model
+# ------------------------
+
+#epochs = hwo many times is it gonna run to find the best solution
+# batch size = how much data is in each batch when it runs
+training = model_lstm_mv.fit(X_train, y_train, epochs=20, batch_size=32)
+
+#Plot training:
+plt.plot(training.history["loss"], label="training loss")
+
+#Prep test data
+test_data = scaled_data[training_data_len - sliding_size : ]
+X_test, y_test = [], dataset[training_data_len : ]
+
+# for i in range(sliding_size, len(test_data)): #sliding_size
+for i in range(0, len(test_data)): #sliding_size
+    X_test.append(test_data[i - sliding_size : i + forecast_days, 0])
+
+X_test = np.array(X_test)
+X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+
+
+# Make predictions
+predictions_lstm_mv = model_lstm_mv.predict(X_test)
+predictions_lstm_mv = scaler.inverse_transform(predictions_lstm_mv)
+
+
+#%% ------------------------
+# Plot results
+# ------------------------
+
+train = data[ : training_data_len]
+test = data[training_data_len : ]
+
+test = test.copy()
+
+test["Predictions"] = predictions_lstm_mv
+
+plt.figure(figsize=(16,8))
+plt.plot(train.loc["2019-10-01": ].index, 
+		 train.loc["2019-10-01": ]["use_transfused"], 
+		 label="Train (Actual)", 
+		 color = "blue")
+plt.plot(test.index, test["use_transfused"], label="Test (Actual)", color = "orange")
+plt.plot(test.index, test["Predictions"], label="Predictions", color = "red")
+plt.title("EC trnasufison prediction")
+plt.xlabel("Date")
+plt.ylabel("number of EC")
+plt.legend()
+
+
+
+#%% ------------------------
+# Get evaluation values
+# ------------------------
+print("LSTM")
+print("RMSE:", metrics.root_mean_squared_error(y_pred=test["Predictions"], y_true=test["use_transfused"]))
+print("MAPE:", metrics.mean_absolute_percentage_error(y_pred=test["Predictions"], y_true=test["use_transfused"]))
+print("MAE: ", metrics.mean_absolute_error(y_pred=test["Predictions"], y_true=test["use_transfused"]))
+print("MdAE:", metrics.median_absolute_error(y_pred=test["Predictions"], y_true=test["use_transfused"]))
+print("MaxE:", metrics.max_error(y_pred=test["Predictions"], y_true=test["use_transfused"]))
+
+
+
+
 
 
 #
