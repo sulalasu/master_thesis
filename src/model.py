@@ -6,15 +6,30 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.pyplot import cm #color palette
+import gc
+
 from sklearn.model_selection import train_test_split
 import statsmodels
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
-
 import sklearn.metrics as metrics #error metrics (mae, mape etc)
 
+#For LSTM
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow import keras
+from sklearn.preprocessing import StandardScaler
+from keras import Input, layers, Model
+
+
+
+
+
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # MARK: Model
+
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 class Model:
     #methods for running are in the child classes for the individual models.
     # here only general methods needed for the models
@@ -206,9 +221,13 @@ class Model:
         self.alpha = alpha
 
 
+
+
+
     #------------------------------------------------------------------------------------------------
     # General
     # MARK: General
+
     def make_validation_set(self, steps: int=1):
         """
         Make a list of tuples that contain (train_start, train_end, test_start, test_end), to use for validation.
@@ -413,6 +432,9 @@ class Model:
     def run_MSRE():
         pass
 
+
+
+
     #------------------------------------------------------------------------------------------------
     # Getters
     # MARK: Getters
@@ -440,6 +462,9 @@ class Model:
 
 
     #UNCLEAR: add extra plotting here or just use the functions?
+
+
+
 
     #------------------------------------------------------------------------------------------------
     # Plotters
@@ -507,18 +532,25 @@ class Model:
 
 
 
+
+
 #--------------------------------------------------------------------
 # Individual Models:
 #--------------------------------------------------------------------
 
-# Comparison Model
-# single value
-# naive/persistent (n-1)
-# mean
-# seasonal naive (n-7)
 
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # MARK: Comparison Model
+
+# - Comparison Model
+# - single value
+# - naive/persistent (n-1)
+# - mean
+# - seasonal naive (n-7)
+
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 class ModelComparison(Model):
     class_name = "Comparison"
 
@@ -753,10 +785,13 @@ class ModelComparison(Model):
 
 
 
-
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # ARIMA
 # MARK: ARIMA
+
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 class ModelArima(Model):
     class_name = "Arima"
 
@@ -896,9 +931,14 @@ class ModelArima(Model):
 
 
 
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # SARIMAX
 # MARK: SARIMAX
+
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
 class ModelSarimax(Model):
     class_name = "Arima"
 
@@ -918,7 +958,7 @@ class ModelSarimax(Model):
         self.exog_cols = None
 
     #------------------------------------------------------------------------------------------------
-    # Setters
+    # MARK: Setters
     #------------------------------------------------------------------------------------------------
 
     def set_model_parameters(
@@ -945,7 +985,7 @@ class ModelSarimax(Model):
             ValueError: If exog_cols list is empty. Doesnt check for data type.
             ValueError: If a column from exog_cols is not present in 'df'
         """
-
+        #TODO: if no exog_cols supplied/argument is empty, set to None, and then do a check in model run, to run it w/o exog vars (SARIMA without X)
         #Check df/exog_cols input for validity
         if len(exog_cols) == 0:
             raise ValueError("Need to pass col name present in 'df' to exog_cols")
@@ -956,6 +996,10 @@ class ModelSarimax(Model):
 
         self.exog_cols = exog_cols
 
+
+    #------------------------------------------------------------------------------------------------
+    # MARK: General
+    #------------------------------------------------------------------------------------------------
 
 
     #composite function:
@@ -1036,12 +1080,6 @@ class ModelSarimax(Model):
             self.model_fits.append(model.fit())
 
 
-    def print_fit_summary(self, last_only=True):
-        if last_only:
-            print(self.model_fits[-1].summary())
-        else:
-            for fit in self.model_fits:
-                print(fit.summary())
 
     def predict(self, days=None):
         """Predict x days ahead, where x == 'days'
@@ -1061,6 +1099,12 @@ class ModelSarimax(Model):
 
         for fit in self.model_fits:
             self.predictions.append(fit.get_forecast(steps=days))
+
+
+
+    #------------------------------------------------------------------------------------------------
+    # MARK: Getters/Print
+    #------------------------------------------------------------------------------------------------
 
 
     def get_prediction(self, days=None, alpha: int=None):
@@ -1087,11 +1131,14 @@ class ModelSarimax(Model):
 
 
 
+    def print_fit_summary(self, last_only=True):
+        if last_only:
+            print(self.model_fits[-1].summary())
+        else:
+            for fit in self.model_fits:
+                print(fit.summary())
 
 
-    #------------------------------------------------------------------------------------------------
-    # Setters
-    #------------------------------------------------------------------------------------------------
 
     def print_params(self):
         print(f"p,d,q: {self.p}, {self.d}, {self.q}\nP,D,Q,m: {self.P},{self.D},{self.Q}{self.m}\nExogenous columns: {self.exog_cols}")
@@ -1099,29 +1146,321 @@ class ModelSarimax(Model):
 
 
 
+
+
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
 # LSTM
 # MARK: LSTM
+
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 class ModelLSTM(Model):
 
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
         super().__init__(data)
+
         #LSTM-specific variable inits
         self.model = None
-        self.params = None #rename; prob better in base class.
 
-    def create_model(self, params: list, days):
-        #create model with (hyper)parameters
-        #params are model parameters
-        # days are days to predict
-        pass
+        # self.params = None #rename; prob better in base class.
+        # self.memory_cell = None
+        # self.epochs = None
+        # self.batch_size = None
+        # self.dropout = None
+        # self.pi_iterations = None
+        # self.optimizer = None
+        # self.loss = None
+
+        self.params = {
+            "prediction_column" : None,
+
+            "memory_cell" : None,
+            "epochs" : None,
+            "batch_size" : None,
+            "dropout" : None,
+            "pi_iterations" : None,
+            "optimizer" : None,
+            "loss" : None,
+            "activation_fct" : None,
+
+            "exog_cols" : None
+        } #rename; prob better in base class.
+
+        #self.exog_cols = None
 
 
+
+    #------------------------------------------------------------------------------------------------
+    # MARK: Setters
+    #------------------------------------------------------------------------------------------------
+
+
+
+    def set_prediction_column(self, prediction_column: str=None):
+        """
+        Docstring for set_prediction_column
+        
+        Args:
+            prediction_column (str): Pass the string of the column name, whcih should be predicted.
+
+        Raises:
+            ValueError if no string supplied/argument is empty
+        """
+
+        if not prediction_column:
+            raise ValueError("'column_to_predict' cant be empty") 
+        
+        self.params["prediction_column"] = prediction_column
+
+
+    def set_model_parameters(
+            self, 
+            memory_cell: int=64,
+            epochs: int=20,
+            batch_size: int=32,
+            dropout: float=0.5,
+            pi_iterations: int=100, #how often to run, to calculate prediction intervals
+            optimizer: str="adam",
+            loss: str="mae"
+            ):
+        
+        self.params["memory_cell"] = memory_cell
+        self.params["epochs"] = epochs
+        self.params["batch_size"] = batch_size
+        self.params["dropout"] = dropout
+        self.params["pi_iterations"] = pi_iterations
+        self.params["optimizer"] = optimizer
+        self.params["loss"] = loss
+
+
+
+    def set_exogenous_cols(self, exog_cols: list):
+        """Set columns to use for exogenous variables with LSTM. 
+        Sets member variables' "param" (dict) key "exog_cols" to value of input parameter.
+
+        Args:
+            exog_cols (list): List of strings containing column names for exog vars (in self.data)
+
+        Raises:
+            ValueError: If exog_cols list is empty. Doesnt check for data type.
+            ValueError: If a column from exog_cols is not present in 'df'
+            ValueError: If a list item is not a string.
+        """
+
+        #Check df/exog_cols input for validity
+        if len(exog_cols) == 0:
+            raise ValueError("Need to pass col name present in 'df' to exog_cols")
+        else:
+            for col in exog_cols:
+                if col not in self.data.columns:
+                    raise ValueError(f"{col} not present df's columns: {self.data.columns}")
+                elif type(col) != str:
+                    raise ValueError(f"{col} not a string -- only string colnames allowed")
+                
+        # self.exog_cols = exog_cols
+        self.params["exog_cols"] = exog_cols
+
+
+
+    #------------------------------------------------------------------------------------------------
+    # MARK: Getters/Print
+    #------------------------------------------------------------------------------------------------
+
+
+    def print_params(self):
+        for key, value in self.params.items():
+            print(key, ": ", value)
+        
+        # if not self.exog_cols:
+        #     print("No exogenous variables/columns set.")
+        # else:
+        #     print(f"Exogenous variables columns:\n{self.exog_cols}")
+
+
+
+    def get_params_df(self):
+        """
+        Returns params as df
+        """
+        params_df = pd.DataFrame([self.params]) #bracket to keep everything in one row
+
+        return params_df
+
+
+
+    #------------------------------------------------------------------------------------------------
+    # MARK: General
+    # Main functions
+    #------------------------------------------------------------------------------------------------
+
+
+    #composite function:
+    # Main function, that combines all other functions in right order for simple running of model + prediction
+    def model_run(self, print_fit_summary=True, last_only=True): 
+        # params here should only be for output to show (df, results, plot etc), no change in model run
+        # expanding/rolling window needs to be set already!
+
+        #TODO: Write docstring
+
+        for window in self.validation_sets:
+            X_train_raw, y_train_raw, X_test_raw, y_test_raw = self.get_data() #get X_raw, y_raw data for every iteration in the sliding7expanding window (correct columns)
+            X_train_scaled, y_train_scaled, X_test_scaled, y_test_scaled = self.scale_data(X_train_raw, y_train_raw, X_test_raw, y_test_raw)  #set scaler + transform to scaled data
+            # self.set_train_test() #set train/test sets
+            # self.prepare_training_features()
+            # self.prepare_test_data()
+            model = self.build_model(window, X_train_scaled)
+            model = self.fit_model(model, X_train_scaled, y_train_scaled) #train model 
+            self.get_prediction_intervalls() #iterations for prediction intervall
+            self.get_result_df() #make df with results (actual, pred. mean, upper/lower pred interv., )
+            self.get_error_values() #stepwise error metrics
+
+
+        # #Get stepwise values:
+        # self.add_stepwise_forecasts()
+        # self.add_stepwise_errors(col_pred=pred_col)
+        # self.add_stepwise_difference(col_pred=pred_col)
+
+
+    def get_data(self, window):
+        """
+        Using the input "window", which contains tuple of start + end date for both train and test sets, it returns
+        numpy arrays for each. VAlues are in format of original data (not scaled!) --> "raw".
+        Columns (exogenous, prediction) are taken from self.params.
+
+        Args:
+            window (tuple of pd.Datetime): Contains a tuple of pd.Datetime 
+                for start/end date of train set, start/end date of test set.
+
+        Raises:
+            ValueError: If no column to predict was set previously.
+
+        Returns:
+            X_train_raw: Numpy array containing prediction+exogenous columns in original format for training
+            y_train_raw: Numpy array containing one column for prediction column in original format for training
+            X_test_raw: Numpy array containing prediction+exogenous columns in original format for testing
+            y_test_raw: Numpy array containing one column for prediction column in original format for testing
+        """
+
+        #TODO: Description of get_data
+
+
+        if not self.params["prediction_column"]:
+            raise ValueError(f"Missing the column to predict ({self.params['predcition_column']})")
+        
+        #
+        columns = self.params["prediction_column"] + self.params["exog_cols"]
+
+        X_train_raw = self.data.loc[window[0] : window[1], columns].values
+        y_train_raw = self.data.loc[window[0] : window[1], self.params["prediction_column"]].values.reshape(-1, 1)
+
+        X_test_raw = self.data.loc[window[2] : window[3], columns].values
+        y_test_raw = self.data.loc[window[2] : window[3], self.params["prediction_column"]].values.reshape(-1, 1)
+      
+        return X_train_raw, y_train_raw, X_test_raw, y_test_raw
+
+
+
+    def scale_data(self, X_train_raw: np.ndarray, y_train_raw: np.ndarray, X_test_raw: np.ndarray, y_test_raw: np.ndarray):
+        """
+        Fits and transforms X/y train and test data with StandardScaler().
+        Fitted on train data, which is used to transform both train and test data.
+        
+        Args:
+            X_train_raw (np.ndarray): Numpy array of shape [n, m] where n=exog cols + prediction col, m=number of train days (rows)
+            y_train_raw (np.ndarray): Numpy array of shape [1, m] with prediction columnn and m=number of train days (rows)
+            X_test_raw (np.ndarray): Numpy array of shape [n, m] where n=exog cols + prediction col, m=number of test days (rows)
+            y_test_raw (np.ndarray): Numpy array of shape [1, m] with prediction columnn and m=number of test days (rows)
+
+        Returns:
+            np.ndarray: Numpy arrays for each input but scaled with StandardScaler.
+        """
+        #TODO: write docstring
+
+        # Preprocessing stages
+        # This is done for the whole raw dataset, and then later applied to each iteration of the 
+        # rolling/expanding window(s)
+        #Uses same scaler, fitted on train data to both test and training of X/y respectively.
+
+        scaler_X = StandardScaler().fit(X_train_raw)
+        scaler_y = StandardScaler().fit(y_train_raw)
+
+        # scaler_X.fit(X_train_raw)
+        # scaler_y.fit(y_train_raw)
+
+        X_train_scaled = scaler_X.transform(X_train_raw)
+        y_train_scaled = scaler_y.transform(y_train_raw)
+        X_test_scaled = scaler_X.transform(X_test_raw)
+        y_test_scaled = scaler_y.transform(y_test_raw)
+
+        return X_train_scaled, y_train_scaled, X_test_scaled, y_test_scaled
+    
+
+    def build_model(self, window, X_train_scaled):
+
+        #get number of days to forecast from window input:
+        first_day_fc = window[2]
+        last_day_fc = window[3]
+        print("first/last days:", first_day_fc, last_day_fc) #TODO: delete
+        forecast_days = last_day_fc - first_day_fc #TODO: better naming!
+        print("DAys of forecast (should be 7: )", forecast_days) #TODO: delete
+
+        inputs = Input(shape=(X_train_scaled.shape[1], X_train_scaled.shape[2]))
+        x = layers.LSTM(self.params["memory_cells"], return_sequences=True)(inputs)
+        x = layers.LSTM(self.params["memory_cells"], return_sequences=False)(x)
+        x = layers.Dense(2*self.params["memory_cells"], activation=self.params["activation_fct"])(x)
+        #MC dropout
+        x = layers.Dropout(0.5)(x, training=True)
+
+        #output layer: x neurons for x days forecasting
+        outputs = layers.Dense(forecast_days)(x)
+
+        model = keras.Model(inputs, outputs)
+        model.compile(optimizer="adam", loss="mae", metrics=[keras.metrics.RootMeanSquaredError()])
+
+        return model
+    
+
+
+    def fit_model(self, model, X_train_scaled, y_train_scaled):
+
+        model.fit(X_train_scaled, y_train_scaled, epochs=self.params["epochs"], batch_size=self.params["batch_size"], verbose=1)
+
+        return model
+    
+
+
+    def get_prediction_intervalls(self, model):
+
+        all_predictions = []
+
+        for _ in range(n_iterations):
+            print(f"Iteration {_}")
+            all_predictions.append(
+                scaler_y.inverse_transform(model(X_test, training=True, verbose=0).numpy())
+            )
+            # all_predictions.append(
+            #     scaler_y.inverse_transform(model.predict(X_test, verbose=0))
+            # )
+
+        all_predictions = np.array(all_predictions)
+
+        forecast_mean = np.mean(all_predictions, axis=0)
+        forecast_lower = np.percentile(all_predictions, 2.5, axis=0)
+        forecast_upper = np.percentile(all_predictions, 97.5, axis=0)
+
+
+
+
+
+
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # Prophet
 # MARK: Prophet
-class ModelProphet(Model):
 
+#xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+class ModelProphet(Model):
     def __init__(self, data): #TODO: maybe add config, but more sense in base class imo
         super().__init__(data)
         #prophet-specific variable inits
@@ -1133,3 +1472,5 @@ class ModelProphet(Model):
         #params are model parameters
         # days are days to predict
         pass
+
+# %%

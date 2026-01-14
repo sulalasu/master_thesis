@@ -422,11 +422,21 @@ print("MaxE:", metrics.max_error(y_pred=test["Predictions"], y_true=test["use_tr
 
 
 
-#%% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-# MARK: LSTM PRED INTERVALLS
+
+
+
+
+# xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+#
+#
+# MARK: LSTM MV PI
 # Multivariate LSTM with prediction intervals
+#
+#
 # xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
+
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 #%% load dataset
 data = df_original.loc[
@@ -435,6 +445,249 @@ data = df_original.loc[
      'ward_CH', 'ward_I1', 'ward_I3', 'ward_Other', 'ward_UC', 
      "workday_enc", "holiday_enc", "day_of_week", "day_of_year", "year", "tlmin", "tlmax"]
     ]
+
+
+#%% ------------------------
+# Prepare for multivariate LSTM Model
+# ------------------------
+
+dataset = data.values 
+training_data_len = int(np.ceil(len(dataset) * 0.95)) # 95% of dataset
+
+#Setting features (all vars incl. target var) & target var as numpy arrays:
+X_raw = dataset
+y_raw = data[COLUMN].values.reshape(-1, 1)
+
+
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+# Preprocessing stages
+scaler_X = StandardScaler()
+scaler_y = StandardScaler()
+
+scaler_X.fit(X_raw[:training_data_len, :]) #TODO: this needs to be training only,otherwise information leak into scaler
+scaler_y.fit(y_raw[:training_data_len, :]) #TODO: this needs to be training only,otherwise information leak into scaler
+
+scaled_X = scaler_X.transform(X_raw) 
+scaled_y = scaler_y.transform(y_raw) 
+
+
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+#----------------------------------
+# Create sliding window for our data (60days)
+sliding_size = 120 
+forecast_days = 3 #days more than on day ahead
+
+# Prep training features
+X_train, y_train = [], []                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+for i in range(sliding_size, training_data_len - forecast_days): #(sliding_size, training_data_len):
+    X_train.append(scaled_X[i - sliding_size : i, :])
+    y_train.append(scaled_y[i : i + forecast_days, 0])
+
+X_train = np.array(X_train)
+y_train = np.array(y_train)
+
+
+#convert lists to np arrays (for tensorflow, needs arrays)
+
+
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+#----------------------------------
+#Prep test data
+# test_data = scaled_data[training_data_len - sliding_size : ]
+X_test, y_test_raw = [], []#dataset[training_data_len : ]
+
+for i in range(training_data_len, len(scaled_X) - forecast_days): #sliding_size, len(test_data)):
+    X_test.append(scaled_X[i - sliding_size : i , :])
+    y_test_raw.append(y_raw[i : i + forecast_days, 0])
+
+X_test = np.array(X_test)
+#X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))
+y_test_raw = np.array(y_test_raw)
+
+
+
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+#%% ------------------------
+# Build the model
+# ------------------------
+from keras import Input, layers, Model
+
+memory_cells = 64 #32, 64, 128, etc
+activation_fct = "relu"
+
+#FUNCTIONAL API
+# Syntax: the object inside (brackets) gets used as input into function defined beforehand like y = f(x)
+inputs = Input(shape=(X_train.shape[1], X_train.shape[2]))
+x = layers.LSTM(memory_cells, return_sequences=True)(inputs)
+x = layers.LSTM(memory_cells, return_sequences=False)(x)
+x = layers.Dense(2*memory_cells, activation=activation_fct)(x)
+#MC dropout
+x = layers.Dropout(0.5)(x, training=True)
+
+#output layer: x neurons for x days forecasting
+outputs = layers.Dense(forecast_days)(x)
+
+model = keras.Model(inputs, outputs)
+model.compile(optimizer="adam", loss="mae", metrics=[keras.metrics.RootMeanSquaredError()])
+
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+#Training the model
+model.fit(X_train, y_train, epochs=20, batch_size=32, verbose=1)
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+
+#%% 
+# Run x times to get Prediction intervals:
+n_iterations = 100
+all_predictions = []
+
+for _ in range(n_iterations):
+    print(f"Iteration {_}")
+    all_predictions.append(
+        scaler_y.inverse_transform(model(X_test, training=True, verbose=0).numpy())
+    )
+    # all_predictions.append(
+    #     scaler_y.inverse_transform(model.predict(X_test, verbose=0))
+    # )
+
+all_predictions = np.array(all_predictions)
+
+
+
+forecast_mean = np.mean(all_predictions, axis=0)
+forecast_lower = np.percentile(all_predictions, 2.5, axis=0)
+forecast_upper = np.percentile(all_predictions, 97.5, axis=0)
+
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+
+#%%
+# Test different results for different model runs (result of Dropout + training=true)
+
+# sample = X_test[0:1]
+# out1  = model(sample, training=True).numpy()
+# out2  = model(sample, training=True).numpy()
+
+# print(f"Prediction 1: {out1}")
+# print(f"Prediction 2: {out2}")
+# print(f"Are they exactly the same? {np.array_equal(out1, out2)}")
+
+#%% 
+# Get results into dict of DFs
+# One df for every 'X days ahead', containing lower, upper limits, mean and actual values
+test_idx_start = training_data_len
+test_idx_end = len(dataset) - forecast_days
+
+results = {}
+for day in range(1, forecast_days + 1):
+    day_label = f"Day_{day}"
+
+    results[day_label] = pd.DataFrame(
+        index = data.index[test_idx_start:test_idx_end]
+    )
+
+
+# Fill empty (index only) dfs:
+for day in range(forecast_days):
+    day_label = f"Day_{day+1}"
+
+    day_predictions = all_predictions[:, :, day]
+
+    results[day_label]["Actual"] = y_test_raw[:, day]
+    results[day_label]["Mean"] = np.mean(day_predictions, axis=0)
+    results[day_label]["Lower"] = np.percentile(day_predictions, 2.5, axis=0)
+    results[day_label]["Upper"] = np.percentile(day_predictions, 97.5, axis=0)
+
+print(results["Day_1"].head())
+
+
+#%%
+# Plotting:
+plt.figure(figsize=(15, 7))
+
+# Actual Future (using Day 1 actuals as the baseline)
+plt.plot(results["Day_1"]["Actual"], label="Actual", color="black", alpha=0.6, linewidth=2)
+
+# Day 1 Forecast + Prediction Interval
+plt.plot(results["Day_1"]["Mean"], label="1-Day Ahead Forecast", color="blue")
+plt.fill_between(results["Day_1"].index, 
+                 results["Day_1"]["Lower"], 
+                 results["Day_1"]["Upper"], 
+                 color="blue", alpha=0.15, label="1-Day PI")
+
+# Day 2 and 3 Forecasts (Lines only)
+# plt.plot(results["Day_2"]["Mean"], label="2-Days Ahead", color="green", linestyle="--")
+# plt.plot(results["Day_3"]["Mean"], label="3-Days Ahead", color="red", linestyle="--")
+
+plt.title(f"Multivariate LSTM: Forecast Horizons for {COLUMN}")
+plt.ylabel("Value")
+plt.legend(loc="upper left")
+plt.show()
+
+#%%
+# Error values:
+
+print("LSTM multivariate with Prediction intervals (not shown)")
+print("RMSE:", metrics.root_mean_squared_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+print("MAPE:", metrics.mean_absolute_percentage_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+print("MAE: ", metrics.mean_absolute_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+print("MdAE:", metrics.median_absolute_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+print("MaxE:", metrics.max_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+
+
+
+
+
+# day_idx = 0
+# time_steps = np.arange(forecast_days)
+
+# plt.figure(figsize=(16,8))
+# plt.plot(time_steps, y_test[day_idx], label="Actual future")
+# plt.plot(time_steps, forecast_mean[day_idx], label="Mean forecast")
+# plt.fill_between(time_steps,
+#                  forecast_lower[day_idx],
+#                  forecast_upper[day_idx],
+#                  color="grey", alpha=0.2, label="95% PI"
+#                  )
+# plt.title("LSTM forecast with 95% Prediction interval")
+# plt.xlabel("Days ahead")
+# plt.ylabel(COLUMN)
+# plt.legend()
+# plt.show()
+
+# SEQUENTIAL API
+# LSTM Layers
+# model_lstm_mv_pi = keras.models.Sequential() #mv = multivariate, pi = prediction interval
+# model_lstm_mv_pi.add(LSTM(memory_cells, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])))
+# model_lstm_mv_pi.add(LSTM(64, return_sequences=False))
+# model_lstm_mv_pi.add(Dense(128, activation="relu"))
+# model_lstm_mv_pi.add(Dropout(0.5))
+# model_lstm_mv_pi.add(Dense(1)) 
+# model_lstm_mv_pi.compile(optimizer="adam", loss="mae", metrics=[keras.metrics.RootMeanSquaredError()])
+
+
+# %%
+
+
+
+
+
+#%% XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+# MARK: LSTM UNIVAR PRED INTERVALLS
+# Univariate LSTM with prediction intervals
+# xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
+#%% load dataset
+data = df_original.loc[
+    START_DATE:END_DATE, 
+    [COLUMN]
+]
 
 
 #%% ------------------------
@@ -503,44 +756,44 @@ activation_fct = "relu"
 
 #FUNCTIONAL API
 # Syntax: the object inside (brackets) gets used as input into function defined beforehand like y = f(x)
-inputs = Input(shape=(X_train.shape[1], X_train.shape[2]))
-x = layers.LSTM(memory_cells, return_sequences=True)(inputs)
-x = layers.LSTM(memory_cells, return_sequences=False)(x)
-x = layers.Dense(2*memory_cells, activation=activation_fct)(x)
+inputs2 = Input(shape=(X_train.shape[1], X_train.shape[2]))
+x2 = layers.LSTM(memory_cells, return_sequences=True)(inputs2)
+x2 = layers.LSTM(memory_cells, return_sequences=False)(x2)
+x2 = layers.Dense(2*memory_cells, activation=activation_fct)(x2)
 #MC dropout
-x = layers.Dropout(0.5)(x, training=True)
+x2 = layers.Dropout(0.5)(x2, training=True)
 
 #output layer: x neurons for x days forecasting
-outputs = layers.Dense(forecast_days)(x)
+outputs2 = layers.Dense(forecast_days)(x2)
 
-model = keras.Model(inputs, outputs)
-model.compile(optimizer="adam", loss="mae", metrics=[keras.metrics.RootMeanSquaredError()])
+model2 = keras.Model(inputs2, outputs2)
+model2.compile(optimizer="adam", loss="mae", metrics=[keras.metrics.RootMeanSquaredError()])
 
 #Training the model
-model.fit(X_train, y_train, epochs=20, batch_size=32, verbose=1)
+model2.fit(X_train, y_train, epochs=20, batch_size=32, verbose=1)
 
 
 #%% 
 # Run x times to get Prediction intervals:
 n_iterations = 100
-all_predictions = []
+all_predictions2 = []
 
 for _ in range(n_iterations):
     print(f"Iteration {_}")
-    all_predictions.append(
-        scaler_y.inverse_transform(model(X_test, training=True, verbose=0).numpy())
+    all_predictions2.append(
+        scaler_y.inverse_transform(model2(X_test, training=True, verbose=0).numpy())
     )
     # all_predictions.append(
     #     scaler_y.inverse_transform(model.predict(X_test, verbose=0))
     # )
 
-all_predictions = np.array(all_predictions)
+all_predictions2 = np.array(all_predictions2)
 
 
 
-forecast_mean = np.mean(all_predictions, axis=0)
-forecast_lower = np.percentile(all_predictions, 2.5, axis=0)
-forecast_upper = np.percentile(all_predictions, 97.5, axis=0)
+forecast_mean2 = np.mean(all_predictions2, axis=0)
+forecast_lower2 = np.percentile(all_predictions2, 2.5, axis=0)
+forecast_upper2 = np.percentile(all_predictions2, 97.5, axis=0)
 #%%
 # Test different results for different model runs (result of Dropout + training=true)
 
@@ -558,11 +811,11 @@ forecast_upper = np.percentile(all_predictions, 97.5, axis=0)
 test_idx_start = training_data_len
 test_idx_end = len(dataset) - forecast_days
 
-results = {}
+results2 = {}
 for day in range(1, forecast_days + 1):
     day_label = f"Day_{day}"
 
-    results[day_label] = pd.DataFrame(
+    results2[day_label] = pd.DataFrame(
         index = data.index[test_idx_start:test_idx_end]
     )
 
@@ -571,14 +824,14 @@ for day in range(1, forecast_days + 1):
 for day in range(forecast_days):
     day_label = f"Day_{day+1}"
 
-    day_predictions = all_predictions[:, :, day]
+    day_predictions = all_predictions2[:, :, day]
 
-    results[day_label]["Actual"] = y_test_raw[:, day]
-    results[day_label]["Mean"] = np.mean(day_predictions, axis=0)
-    results[day_label]["Lower"] = np.percentile(day_predictions, 2.5, axis=0)
-    results[day_label]["Upper"] = np.percentile(day_predictions, 97.5, axis=0)
+    results2[day_label]["Actual"] = y_test_raw[:, day]
+    results2[day_label]["Mean"] = np.mean(day_predictions, axis=0)
+    results2[day_label]["Lower"] = np.percentile(day_predictions, 2.5, axis=0)
+    results2[day_label]["Upper"] = np.percentile(day_predictions, 97.5, axis=0)
 
-print(results["Day_1"].head())
+print(results2["Day_1"].head())
 
 
 #%%
@@ -586,33 +839,33 @@ print(results["Day_1"].head())
 plt.figure(figsize=(15, 7))
 
 # Actual Future (using Day 1 actuals as the baseline)
-plt.plot(results['Day_1']['Actual'], label='Actual', color='black', alpha=0.6, linewidth=2)
+plt.plot(results2["Day_1"]["Actual"], label="Actual", color="black", alpha=0.6, linewidth=2)
 
 # Day 1 Forecast + Prediction Interval
-plt.plot(results['Day_1']['Mean'], label='1-Day Ahead Forecast', color='blue')
-plt.fill_between(results['Day_1'].index, 
-                 results['Day_1']['Lower'], 
-                 results['Day_1']['Upper'], 
-                 color='blue', alpha=0.15, label='1-Day PI')
+plt.plot(results2["Day_1"]["Mean"], label="1-Day Ahead Forecast", color="blue")
+plt.fill_between(results2["Day_1"].index, 
+                 results2["Day_1"]["Lower"], 
+                 results2["Day_1"]["Upper"], 
+                 color="blue", alpha=0.15, label="1-Day PI")
 
 # Day 2 and 3 Forecasts (Lines only)
-plt.plot(results['Day_2']['Mean'], label='2-Days Ahead', color='green', linestyle='--')
-plt.plot(results['Day_3']['Mean'], label='3-Days Ahead', color='red', linestyle='--')
+# plt.plot(results2["Day_2"]["Mean"], label="2-Days Ahead", color="green", linestyle="--")
+# plt.plot(results2["Day_3"]["Mean"], label="3-Days Ahead", color="red", linestyle="--")
 
-plt.title(f"Multivariate LSTM: Forecast Horizons for {COLUMN}")
+plt.title(f"Univariate LSTM: Forecast Horizons for {COLUMN}")
 plt.ylabel("Value")
-plt.legend(loc='upper left')
+plt.legend(loc="upper left")
 plt.show()
 
 #%%
 # Error values:
 
-print("LSTM multivariate with Prediction intervals (not shown)")
-print("RMSE:", metrics.root_mean_squared_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
-print("MAPE:", metrics.mean_absolute_percentage_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
-print("MAE: ", metrics.mean_absolute_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
-print("MdAE:", metrics.median_absolute_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
-print("MaxE:", metrics.max_error(y_pred=results["Day_1"]["Mean"], y_true=results["Day_1"]["Actual"]))
+print("LSTM univariate with Prediction intervals (not shown)")
+print("RMSE:", metrics.root_mean_squared_error(y_pred=results2["Day_1"]["Mean"], y_true=results2["Day_1"]["Actual"]))
+print("MAPE:", metrics.mean_absolute_percentage_error(y_pred=results2["Day_1"]["Mean"], y_true=results2["Day_1"]["Actual"]))
+print("MAE: ", metrics.mean_absolute_error(y_pred=results2["Day_1"]["Mean"], y_true=results2["Day_1"]["Actual"]))
+print("MdAE:", metrics.median_absolute_error(y_pred=results2["Day_1"]["Mean"], y_true=results2["Day_1"]["Actual"]))
+print("MaxE:", metrics.max_error(y_pred=results2["Day_1"]["Mean"], y_true=results2["Day_1"]["Actual"]))
 
 
 

@@ -193,3 +193,9 @@ Super gut mit code anleitung für GRU und LSTM:
 https://www.datacamp.com/tutorial/tutorial-for-recurrent-neural-network
 
 Next steps: videos zu FNN, RNN und dann LSTM und GRU
+
+RNN/LSTM:
+very good series:https://www.youtube.com/watch?v=Mdp5pAKNNW4
++ episdoe 164, 165, 166, 166b, 181. insbes. 164, 166
+also 3blue1brown, for overview of calculus (optional), overview of linear algebra (optional) and Neural networks 
+also this: https://www.youtube.com/watch?v=WCUNPb-5EYI

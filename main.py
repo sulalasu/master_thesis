@@ -24,6 +24,7 @@ print(load.__file__)
 print(clean.__file__)
 
 IMAGE_PATH = "plots/2025_10_10-Plots_for_Meeting/"
+RUN_ALL = False
 
 
 #%%--------------------------------------------------------------------------------
@@ -35,16 +36,18 @@ df_raw = load.load_data(path="data/01_raw/blood-data_complete_2025-07-16.tsv")
 # df_raw = load.load_data(path="data/01_raw/testdaten.tsv")
 
 #%%
-load.show_info(df=df_raw)
-hidden_cols=["date", "EC_ID_I_hash", "EC_ID_O_hash", "T_ISO", "T_DE_T", "T_US", "T_DE_S", "T_US_T", "T_DE", "T_ISO_T", "T_XL"]
-for col in df_raw.columns:
-    if col not in hidden_cols:
-        tmp = df_raw[col].astype(str).unique()
-        tmp = np.array(sorted(tmp))
-        print(f"{col}:\n{tmp}\n")
-print(df_raw.columns)
-#TODO: move back to clean_data
-# df_raw = clean.clean_dates(df_raw) #TODO: remove here, enable again in clean_data()
+#TODO: remove
+if RUN_ALL == True:
+    load.show_info(df=df_raw)
+    hidden_cols=["date", "EC_ID_I_hash", "EC_ID_O_hash", "T_ISO", "T_DE_T", "T_US", "T_DE_S", "T_US_T", "T_DE", "T_ISO_T", "T_XL"]
+    for col in df_raw.columns:
+        if col not in hidden_cols:
+            tmp = df_raw[col].astype(str).unique()
+            tmp = np.array(sorted(tmp))
+            print(f"{col}:\n{tmp}\n")
+    print(df_raw.columns)
+    #TODO: move back to clean_data
+    # df_raw = clean.clean_dates(df_raw) #TODO: remove here, enable again in clean_data()
 
 
 
@@ -66,26 +69,31 @@ df_clean = clean.clean_data(df_raw)
 #df_clean = df_clean['2018-01-01':'2024-12-31'] #only works on monotonic (==daily aggregated, no duplicate days) df
 
 #%%
-#TODO: Check what unique vals are present in df
-clean.check_unique_values(df_clean.drop(["EC_ID_I_hash", "EC_ID_O_hash", "PAT_WARD"], axis=1))
+#TODO: remove
+if RUN_ALL == True:
+    #TODO: Check what unique vals are present in df
+    clean.check_unique_values(df_clean.drop(["EC_ID_I_hash", "EC_ID_O_hash", "PAT_WARD"], axis=1))
 
 
 #%%
 # Plot frequency counts for unique values in every column
 #TODO: move into viz.py
-for col_name, col in df_clean.items():
-    if col_name in ["EC_ID_O_hash", "EC_ID_I_hash"]:
-        continue
-    print(col.value_counts())
-    col.value_counts()[:40].plot(kind="bar", title=col_name,)
-    plt.savefig(fname=IMAGES_PATH_EXPLORATION+f"01-barcharts-value_counts-{col_name}")
-    plt.show()
+
+#TODO: remove
+if RUN_ALL == True:
+    for col_name, col in df_clean.items():
+        if col_name in ["EC_ID_O_hash", "EC_ID_I_hash"]:
+            continue
+        print(col.value_counts())
+        col.value_counts()[:40].plot(kind="bar", title=col_name,)
+        plt.savefig(fname=IMAGES_PATH_EXPLORATION+f"01-barcharts-value_counts-{col_name}")
+        plt.show()
 
 
-importlib.reload(viz)
-##%%
-# Plot each patient wards transfusion counts (for wards with >500 transfusions)
-viz.plot_patient_wards(df_clean, n=500, save_figs=False, location=IMAGES_PATH_EXPLORATION, foldername="")
+    importlib.reload(viz)
+    ##%%
+    # Plot each patient wards transfusion counts (for wards with >500 transfusions)
+    viz.plot_patient_wards(df_clean, n=500, save_figs=False, location=IMAGES_PATH_EXPLORATION, foldername="")
 
 
 
@@ -114,37 +122,39 @@ df_processed = transform.transform_data(df_clean)
 
 
 #%% #Plot seasonalities daily & weekly of processed df
-importlib.reload(viz)
+#TODO: remove
+if RUN_ALL == True:
+    importlib.reload(viz)
 
-BG_RH_cols = ['EC_BG_RH_0_NB']#,
-    #    'EC_BG_RH_0_Rh_negative', 'EC_BG_RH_0_Rh_positive', 'EC_BG_RH_A_NB',
-    #    'EC_BG_RH_A_Rh_negative', 'EC_BG_RH_A_Rh_positive', 'EC_BG_RH_AB_NB',
-    #    'EC_BG_RH_AB_Rh_negative', 'EC_BG_RH_AB_Rh_positive', 'EC_BG_RH_B_NB',
-    #    'EC_BG_RH_B_Rh_negative', 'EC_BG_RH_B_Rh_positive', 'PAT_BG_RH_0_NB',
-    #    'PAT_BG_RH_0_Rh_negative', 'PAT_BG_RH_0_Rh_positive', 'PAT_BG_RH_A_NB',
-    #    'PAT_BG_RH_A_Rh_negative', 'PAT_BG_RH_A_Rh_positive', 'PAT_BG_RH_AB_NB',
-    #    'PAT_BG_RH_AB_Rh_negative', 'PAT_BG_RH_AB_Rh_positive',
-    #    'PAT_BG_RH_B_NB', 'PAT_BG_RH_B_Rh_negative', 'PAT_BG_RH_B_Rh_positive',
-    #    'PAT_BG_RH_NB_NB', 'PAT_BG_RH_NB_Rh_negative',
-    #    'PAT_BG_RH_NB_Rh_positive', 'PAT_BG_RH_Not_applicable']
-for bg_rh in BG_RH_cols:
-    # viz.seasonal_plot(df_processed, plot_type="weekly", col_name=bg_rh)
-    viz.seasonal_plot(df_processed, plot_type="daily", col_name=bg_rh)
-
-
-
-ward_cols = ['ward_AN', 'ward_CH', 'ward_I1', 'ward_I3', 'ward_Other', 'ward_UC']
-for ward in ward_cols:
-    viz.seasonal_plot(df_processed, plot_type="weekly", col_name=ward)
-    viz.seasonal_plot(df_processed, plot_type="daily", col_name=ward)
+    BG_RH_cols = ['EC_BG_RH_0_NB']#,
+        #    'EC_BG_RH_0_Rh_negative', 'EC_BG_RH_0_Rh_positive', 'EC_BG_RH_A_NB',
+        #    'EC_BG_RH_A_Rh_negative', 'EC_BG_RH_A_Rh_positive', 'EC_BG_RH_AB_NB',
+        #    'EC_BG_RH_AB_Rh_negative', 'EC_BG_RH_AB_Rh_positive', 'EC_BG_RH_B_NB',
+        #    'EC_BG_RH_B_Rh_negative', 'EC_BG_RH_B_Rh_positive', 'PAT_BG_RH_0_NB',
+        #    'PAT_BG_RH_0_Rh_negative', 'PAT_BG_RH_0_Rh_positive', 'PAT_BG_RH_A_NB',
+        #    'PAT_BG_RH_A_Rh_negative', 'PAT_BG_RH_A_Rh_positive', 'PAT_BG_RH_AB_NB',
+        #    'PAT_BG_RH_AB_Rh_negative', 'PAT_BG_RH_AB_Rh_positive',
+        #    'PAT_BG_RH_B_NB', 'PAT_BG_RH_B_Rh_negative', 'PAT_BG_RH_B_Rh_positive',
+        #    'PAT_BG_RH_NB_NB', 'PAT_BG_RH_NB_Rh_negative',
+        #    'PAT_BG_RH_NB_Rh_positive', 'PAT_BG_RH_Not_applicable']
+    for bg_rh in BG_RH_cols:
+        # viz.seasonal_plot(df_processed, plot_type="weekly", col_name=bg_rh)
+        viz.seasonal_plot(df_processed, plot_type="daily", col_name=bg_rh)
 
 
-#TODO: save data to csv
-# # Plot daily/weekly cases influenza
-# fig, ax = plt.subplots(1)
-# ax.plot(df_processed["new_cases_daily"])
-# ax.plot(df_processed["new_cases_weekly"], color="red")
-# plt.show
+
+    ward_cols = ['ward_AN', 'ward_CH', 'ward_I1', 'ward_I3', 'ward_Other', 'ward_UC']
+    for ward in ward_cols:
+        viz.seasonal_plot(df_processed, plot_type="weekly", col_name=ward)
+        viz.seasonal_plot(df_processed, plot_type="daily", col_name=ward)
+
+
+    #TODO: save data to csv
+    # # Plot daily/weekly cases influenza
+    # fig, ax = plt.subplots(1)
+    # ax.plot(df_processed["new_cases_daily"])
+    # ax.plot(df_processed["new_cases_weekly"], color="red")
+    # plt.show
 
 
 
@@ -163,79 +173,86 @@ importlib.reload(data_model)
 df = data_model.Data(data=df_processed)
 
 #%%
-##%
-#df.print_head()
-df[START_DATE_EXPLORATION:].plot_seasonal(plot_type='daily', col_name='use_transfused', fig_location=IMAGES_PATH_EXPLORATION)
-df[START_DATE_EXPLORATION:].plot_seasonal(plot_type='weekly', col_name='use_transfused')
+#TODO: remove
+if RUN_ALL == True:
 
 
-##%%
-#Boxplots
-df[START_DATE_EXPLORATION:].plot_boxplots(col_name='use_transfused')
-df[START_DATE_EXPLORATION:].plot_seasonal_subseries(col_name='use_transfused') #NOTE: i think it works, but not enough dummy data.
-#TODO: check if seasonal subseries plot works with multi-year data
+    #df.print_head()
+    df[START_DATE_EXPLORATION:].plot_seasonal(plot_type='daily', col_name='use_transfused', fig_location=IMAGES_PATH_EXPLORATION)
+    df[START_DATE_EXPLORATION:].plot_seasonal(plot_type='weekly', col_name='use_transfused')
 
 
-##%%
-#Decompose
-df[PRE_COVID_START:PRE_COVID_END].decompose_one(col_name='use_transfused')
+    ##%%
+    #Boxplots
+    df[START_DATE_EXPLORATION:].plot_boxplots(col_name='use_transfused')
+    df[START_DATE_EXPLORATION:].plot_seasonal_subseries(col_name='use_transfused') #NOTE: i think it works, but not enough dummy data.
+    #TODO: check if seasonal subseries plot works with multi-year data
 
 
-#df.decompose_all("use_transfused")
-
-# mulitple decomposition (daily + weekly)
-df[PRE_COVID_START:PRE_COVID_END].multiple_decompose(col_name="use_transfused", periods=[7, 365])
-
+    ##%%
+    #Decompose
+    df[PRE_COVID_START:PRE_COVID_END].decompose_one(col_name='use_transfused')
 
 
+    #df.decompose_all("use_transfused")
 
-##%%
+    # mulitple decomposition (daily + weekly)
+    df[PRE_COVID_START:PRE_COVID_END].multiple_decompose(col_name="use_transfused", periods=[7, 365])
 
 
 
-df[pd.to_datetime("2024-01-01"):pd.to_datetime("2024-12-31")].plot_daily_heatmap(col_name='use_transfused')
+
+    ##%%
+
+
+
+    df[pd.to_datetime("2024-01-01"):pd.to_datetime("2024-12-31")].plot_daily_heatmap(col_name='use_transfused')
 
 
 #%% Visualize counts for all plots (as of now only for those starting with 901AN) on top of each other, so that
 # its visible, where naming of one ward starts/ends 
-wards = df_clean["PAT_WARD"].unique()
-fig, ax = plt.subplots(44,1, figsize=(6, 24))
-fig.set_dpi(300)
-fig.set_linewidth(5)
-sel_wards = []
-i = 0
-for ward in wards:
-    if str(ward).startswith("901AN"):
-        sel_wards.append(ward)
-        ax[i].plot(df[f"PAT_WARD_{ward}"], label=ward, linewidth=0.15)
-        # ax[i].set_title(str(ward))
-        ax[i].legend(loc="upper right", prop={"size":6}, frameon=False, framealpha=0.5)
-        ax[i].set_yticklabels([])
-        i = i+1
-        
-print(len(sel_wards))
-print(sel_wards)
-plt.savefig(fname="/".join([IMAGES_PATH_EXPLORATION + "show_inconsistency_wards"]))
-plt.show()
+#TODO: remove
+if RUN_ALL == True:
+    wards = df_clean["PAT_WARD"].unique()
+    fig, ax = plt.subplots(44,1, figsize=(6, 24))
+    fig.set_dpi(300)
+    fig.set_linewidth(5)
+    sel_wards = []
+    i = 0
+    for ward in wards:
+        if str(ward).startswith("901AN"):
+            sel_wards.append(ward)
+            ax[i].plot(df[f"PAT_WARD_{ward}"], label=ward, linewidth=0.15)
+            # ax[i].set_title(str(ward))
+            ax[i].legend(loc="upper right", prop={"size":6}, frameon=False, framealpha=0.5)
+            ax[i].set_yticklabels([])
+            i = i+1
+            
+    print(len(sel_wards))
+    print(sel_wards)
+    plt.savefig(fname="/".join([IMAGES_PATH_EXPLORATION + "show_inconsistency_wards"]))
+    plt.show()
 
 #%%
 # Get unique Letter-combinations (i guess top-wards) from all wards:
-import re
-unique_wards = df_clean["PAT_WARD"].unique()
+#TODO: remove
+if RUN_ALL == True:
+    import re
+    unique_wards = df_clean["PAT_WARD"].unique()
 
-pattern = re.compile(r'\d+([A-Za-z]+)\d+')  # number + letters + number
+    pattern = re.compile(r'\d+([A-Za-z]+)\d+')  # number + letters + number
 
-ward_results = set()  # only unique strings
+    ward_results = set()  # only unique strings
 
-for s in unique_wards:
-    match = pattern.search(str(s))
-    if match:
-        ward_results.add(match.group(1))  # =letters
+    for s in unique_wards:
+        match = pattern.search(str(s))
+        if match:
+            ward_results.add(match.group(1))  # =letters
 
-print(unique_wards)
-print(len(unique_wards))
-print(ward_results)
-print(len(ward_results))
+    print(unique_wards)
+    print(len(unique_wards))
+    print(ward_results)
+    print(len(ward_results))
 
 #%%--------------------------------------------------------------------------------
 # MARK: STATIONARITY 
@@ -249,104 +266,106 @@ print(len(ward_results))
 #    - Time series
 #    - ACF, PACF
 # 1.2 Statistical test
-#    - Unit root test 
+#    - Unit root test
+# 
+#  
+#TODO: remove
+if RUN_ALL == True:
+    from statsmodels.graphics.tsaplots import plot_acf
+    from statsmodels.graphics.tsaplots import plot_pacf
 
-#  2. 
-from statsmodels.graphics.tsaplots import plot_acf
-from statsmodels.graphics.tsaplots import plot_pacf
+    from statsmodels.tsa.stattools import adfuller
+    from statsmodels.tsa.stattools import kpss
 
-from statsmodels.tsa.stattools import adfuller
-from statsmodels.tsa.stattools import kpss
+    ##%%
+    #Time series plots (acf, pacf etc)
+    df.plot_autocorrelation(col_name='count')
+    df.plot_partial_autocorrelation(col_name='count')
 
-##%%
-#Time series plots (acf, pacf etc)
-df.plot_autocorrelation(col_name='count')
-df.plot_partial_autocorrelation(col_name='count')
+    num_differencing = 2
+    i = 1
+    df_diff = df_processed.copy()
 
-num_differencing = 2
-i = 1
-df_diff = df_processed.copy()
+    df_diff["use_transfused"].plot(lw=0.05)
 
-df_diff["use_transfused"].plot(lw=0.05)
+    plot_acf(df_diff["use_transfused"], title="No differentiation")
+    plot_pacf(df_diff["use_transfused"], title="No differentiation")
 
-plot_acf(df_diff["use_transfused"], title="No differentiation")
-plot_pacf(df_diff["use_transfused"], title="No differentiation")
+    #ADF -- Augmented dickey-fuller test
+    adf_result_diff = adfuller(df_diff["use_transfused"][1:], autolag="AIC") #default
+    adf_result_diff2 = adfuller(df_diff["use_transfused"][1:], autolag="BIC")
+    adf_result = adfuller(df["use_transfused"], autolag="AIC") #default
+    adf_result2 = adfuller(df["use_transfused"], autolag="BIC")
+    adfuller(df["use_transfused"])
+    plt.plot(df["use_transfused"])
+    plt.plot(df_diff["use_transfused"])
 
-#ADF -- Augmented dickey-fuller test
-adf_result_diff = adfuller(df_diff["use_transfused"][1:], autolag="AIC") #default
-adf_result_diff2 = adfuller(df_diff["use_transfused"][1:], autolag="BIC")
-adf_result = adfuller(df["use_transfused"], autolag="AIC") #default
-adf_result2 = adfuller(df["use_transfused"], autolag="BIC")
-adfuller(df["use_transfused"])
-plt.plot(df["use_transfused"])
-plt.plot(df_diff["use_transfused"])
+    #i think i can reject the H0 in both cases (df and df_diff), for df test staticstics is -11.49, far below 
+    #critical values of 1%, 5%, 10%, same  for df_diff with -21.07. therefore i reject H0 (data is 
+    # non stationary, has a unit root). H1 is true, data is stationary has no unit root. so no differencing 
+    # needed actually?
 
-#i think i can reject the H0 in both cases (df and df_diff), for df test staticstics is -11.49, far below 
-#critical values of 1%, 5%, 10%, same  for df_diff with -21.07. therefore i reject H0 (data is 
-# non stationary, has a unit root). H1 is true, data is stationary has no unit root. so no differencing 
-# needed actually?
-
-#Different params for autolag:
-# no real differences in result, so doestn matter. (in gerneral AIC better for large datasets)
+    #Different params for autolag:
+    # no real differences in result, so doestn matter. (in gerneral AIC better for large datasets)
 
 
-#KPSS
-kpss_result_diff = kpss(df_diff["use_transfused"][1:])
-kpss_result = kpss(df["use_transfused"])
-kpss_result = kpss(df["use_transfused"])
+    #KPSS
+    kpss_result_diff = kpss(df_diff["use_transfused"][1:])
+    kpss_result = kpss(df["use_transfused"])
+    kpss_result = kpss(df["use_transfused"])
 
-#kpss is one-sided test, if test statistics is greater than critical value, then H0 is rejected. 
-# H0 for KPSS is that ts is stationary, H1 ts is NOT stationary.
-# for kopss_result_diff, p-val = 0.1, test stat. = 0.0104, 0.0104 is not greater than 0.347 (10%), so H0 cant
-# be rejected, ts seems to be stationary.
-# for kpss_result, with p value = 0.01, test statistic = 1.258 is greater than 0.739 (1%), so H0 is rejected,
-# ts is not stationary. 
+    #kpss is one-sided test, if test statistics is greater than critical value, then H0 is rejected. 
+    # H0 for KPSS is that ts is stationary, H1 ts is NOT stationary.
+    # for kopss_result_diff, p-val = 0.1, test stat. = 0.0104, 0.0104 is not greater than 0.347 (10%), so H0 cant
+    # be rejected, ts seems to be stationary.
+    # for kpss_result, with p value = 0.01, test statistic = 1.258 is greater than 0.739 (1%), so H0 is rejected,
+    # ts is not stationary. 
 
-# So for differentiated data (df_diff), both ADF + KPSS suggest stationarity.
-# For df (original data), ADF suggests stationarity, KPSS suggests non-stationarity.
-# with this guide: https://www.statsmodels.org/dev/examples/notebooks/generated/stationarity_detrending_adf_kpss.html
-# i should differntiate the original series (df), then check this for stationarity. i already did that, and
-# both tests suggest that data is stationary. so differencing was right call.
+    # So for differentiated data (df_diff), both ADF + KPSS suggest stationarity.
+    # For df (original data), ADF suggests stationarity, KPSS suggests non-stationarity.
+    # with this guide: https://www.statsmodels.org/dev/examples/notebooks/generated/stationarity_detrending_adf_kpss.html
+    # i should differntiate the original series (df), then check this for stationarity. i already did that, and
+    # both tests suggest that data is stationary. so differencing was right call.
 
-print(adf_result[0])
-print(f"No differencing: \nadf: {adf_result[0]}\np-value: {adf_result[1]}\ncritical vals: {adf_result[4]}")
-while i <= num_differencing:
-    df_diff["use_transfused"] = df_diff["use_transfused"].diff()
-
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
-    df_diff["use_transfused"].plot(ax=ax1, lw=0.05)
-    plot_acf(df_diff["use_transfused"].dropna(), ax=ax2)
-    plot_pacf(df_diff["use_transfused"].dropna(), ax=ax3)
-    fig.suptitle(f"differentiated {i}x")
-    fig.show()
-
-    adf_result = adfuller(df_diff["use_transfused"].dropna())
+    print(adf_result[0])
     print(f"No differencing: \nadf: {adf_result[0]}\np-value: {adf_result[1]}\ncritical vals: {adf_result[4]}")
+    while i <= num_differencing:
+        df_diff["use_transfused"] = df_diff["use_transfused"].diff()
+
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+        df_diff["use_transfused"].plot(ax=ax1, lw=0.05)
+        plot_acf(df_diff["use_transfused"].dropna(), ax=ax2)
+        plot_pacf(df_diff["use_transfused"].dropna(), ax=ax3)
+        fig.suptitle(f"differentiated {i}x")
+        fig.show()
+
+        adf_result = adfuller(df_diff["use_transfused"].dropna())
+        print(f"No differencing: \nadf: {adf_result[0]}\np-value: {adf_result[1]}\ncritical vals: {adf_result[4]}")
 
 
-    i += 1
+        i += 1
 
-#seasonal differencing = subtracting value of previous season 
-# (i'll try week, so period = 7 (7 rows before in dataset))
-num_differencing = 3
-period = 365
-i = 1
-df_diff = df_processed.copy()
+    #seasonal differencing = subtracting value of previous season 
+    # (i'll try week, so period = 7 (7 rows before in dataset))
+    num_differencing = 3
+    period = 365
+    i = 1
+    df_diff = df_processed.copy()
 
-df_diff["use_transfused"].plot(lw=0.05)
-plot_acf(df_diff["use_transfused"], title="No differentiation")
-plot_pacf(df_diff["use_transfused"], title="No differentiation")
+    df_diff["use_transfused"].plot(lw=0.05)
+    plot_acf(df_diff["use_transfused"], title="No differentiation")
+    plot_pacf(df_diff["use_transfused"], title="No differentiation")
 
-while i <= num_differencing:
-    df_diff["use_transfused"] = df_diff["use_transfused"].diff(periods=period)
+    while i <= num_differencing:
+        df_diff["use_transfused"] = df_diff["use_transfused"].diff(periods=period)
 
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
-    df_diff["use_transfused"].plot(ax=ax1, lw=0.05)
-    plot_acf(df_diff["use_transfused"].dropna(), ax=ax2)
-    plot_pacf(df_diff["use_transfused"].dropna(), ax=ax3)
-    fig.suptitle(f"differentiated {i}x")
-    fig.show()
-    i += 1
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+        df_diff["use_transfused"].plot(ax=ax1, lw=0.05)
+        plot_acf(df_diff["use_transfused"].dropna(), ax=ax2)
+        plot_pacf(df_diff["use_transfused"].dropna(), ax=ax3)
+        fig.suptitle(f"differentiated {i}x")
+        fig.show()
+        i += 1
 
 
 
@@ -406,7 +425,7 @@ arima = model.ModelArima(df)
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-arima.set_validation_rolling_window(train_percent=0.995, test_len=7, start_date=config.DEV_START_DATE) #TODO: change date/remove it
+arima.set_validation_rolling_window(train_percent=0.975, test_len=7, start_date=config.DEV_START_DATE) #TODO: change date/remove it
 
 arima.set_model_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
 arima.model_run(col=config.COLUMN)
@@ -423,45 +442,52 @@ print(arima.stepwise_forecast_errors)
 #TODO: ARIMA with grid search:
 #dummy var names for now (partly)
 
-arima_gs = model.ModelArima(df)
-arima_gs_result = {}
-grid_params = {
-    col: (config.COLUMN),
-    p: [0, 7],
-    d: [0, 3],
-    q: [0, 7],
-    "rolling_type" : ["expanding", "rolling"]
-}
-#TODO: convert setted grid min/max/choice to list of possible values
-#idea: min/max always as set, rest as list.
-grid_params_list = convert_gs_to_list(grid_params)
+#TODO: remove
+if RUN_ALL == True:
+
+    arima_gs = model.ModelArima(df)
+    arima_gs_result = {}
+    grid_params = {
+        col: (config.COLUMN),
+        p: [0, 7],
+        d: [0, 3],
+        q: [0, 7],
+        "rolling_type" : ["expanding", "rolling"]
+    }
+    #TODO: convert setted grid min/max/choice to list of possible values
+    #idea: min/max always as set, rest as list.
+    grid_params_list = convert_gs_to_list(grid_params)
 
 
-for count, grid in enumerate(grid_params_list): #suppose this iterates over our min/max or possible values
-    params = grid #store parameters
+    for count, grid in enumerate(grid_params_list): #suppose this iterates over our min/max or possible values
+        params = grid #store parameters
 
-    if grid["rolling_type"] == "expanding":
-        arima.set_validation_expanding(df)
-    elif grid["rolling_type"] == "rolling":
-        arima.set_validation_rolling(df)
+        if grid["rolling_type"] == "expanding":
+            arima.set_validation_expanding(df)
+        elif grid["rolling_type"] == "rolling":
+            arima.set_validation_rolling(df)
 
-    #run model with params:
-    arima.set_model_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
-    arima.model_run(col=config.COLUMN)
+        #run model with params:
+        arima.set_model_parameters(7, 1, 1) #7,1,1, #TODO: add hyperparam grid
+        arima.model_run(col=config.COLUMN)
 
-    #save values
-    res_fc = arima.forecastt #store forecast result
-    res_og = arima.actual_values #store which actual values where used for calc errors
-    res_errors = arima_gs.stepwise_forecast_errors
+        #save values
+        res_fc = arima.forecastt #store forecast result
+        res_og = arima.actual_values #store which actual values where used for calc errors
+        res_errors = arima_gs.stepwise_forecast_errors
 
-    #store in dict
-    arima_gs_result.append({count: {
-            "params": params,
-            "forecast":res_fc,
-            "actual":res_og,
-            "errors":res_errors
-        }}
-    )
+        #store in dict
+        arima_gs_result.append({count: {
+                "params": params,
+                "forecast":res_fc,
+                "actual":res_og,
+                "errors":res_errors
+            }}
+        )
+
+
+
+
 
 
 
@@ -478,10 +504,10 @@ sarima = model.ModelSarimax(df)
 # Test runs (it works as expected)
 # arima.set_validation_expanding_window(train_percent=0.992, test_len=7, start_date="2022-01-01")
 # arima.set_validation_single_split(train_percent=0.75)
-sarima.set_validation_rolling_window(train_percent=0.9750, test_len=7, start_date=config.DEV_START_DATE) #TODO: change date/remove it
+sarima.set_validation_rolling_window(train_percent=0.975, test_len=7, start_date=config.DEV_START_DATE) #TODO: change date/remove it
 
 sarima.set_exogenous_vars(exog_cols=["tlmin", "workday_enc", "holiday_enc", "day_of_week", "day_of_year"])
-sarima.set_model_parameters(7, 1, 1, 0,0,2,7) #7,1,1, #TODO: add hyperparam grid
+sarima.set_model_parameters(p=7, d=1, q=1, P=0, D=0, Q=2, m=7) #7,1,1, #TODO: add hyperparam grid
 
 sarima.model_run(pred_col=config.COLUMN)#, exog=["PAT_BG_0", "PAT_BG_A", "PAT_BG_AB", "PAT_BG_B"])
 
@@ -497,6 +523,110 @@ print(sarima.stepwise_forecast_errors)
 #%%----------------------------------------------------------------------------------
 # MARK: LSTM
 #----------------------------------------------------------------------------------
+
+importlib.reload(model)
+importlib.reload(config) #for DEV_START_DATE
+
+lstm_m = model.ModelLSTM(df)
+
+
+#TODO: finish grid search
+#TODO: implement automatic filling of grid search var (list of dicts with all possible combinations)
+#TODO: grid_search_list/params could be a df, where index is a consecutive number and columns are the test params.
+# That way, would be easy to assign number to saved csv file.
+
+#TODO: this would set the options/borders/steps for grid searching
+exog_cols = ["use_discarded", "use_expired", 'ward_AN', 'ward_CH', 'ward_I1', 'ward_I3', 'ward_Other', 'ward_UC', 
+     "workday_enc", "holiday_enc", "day_of_week", "day_of_year", "year", "tlmin", "tlmax"]
+
+#TODO: grid search options/possiblilites rough idea:
+# grid_search_lstm_options = {
+#     "validation_type" : ["rolling", "expanding"],
+#     "train_prct" : range(0.6, 0.8, step=0.1), #wouldnt it make more sense to use int of days before to train? like train_days = 365*7 or 730 or something?
+#     "test_len" : [7],
+#     "start_date" : [pd.to_datetime(day) for day in ["2008-01-01", "20012-01-01", "20016-01-01", "2020-01-01", "2024-01-01"]],
+    
+#     "memory_cell" : [32, 64, 128],
+#     "epochs" : [20],
+#     "batch_size" : [32],
+#     "batch_size" : [0.3, 0.5, 0.7],
+#     "pi_iterations" : [100, 1000],
+#     "optimizer" : ["adam"],
+#     "loss" : ["mae"],
+#     "exog_cols" : exog_cols #this would need to be 0-all of them? or just 0 + all?
+# }
+
+# #TODO: grid search -- this is what a possible list of dicts could look like (missing exog_cols):
+# grid_search_lstm = [{
+#     "validation_type" : "rolling",
+#     "train_prct" : 0.98,
+#     "test_len" : 7,
+#     "start_date" : pd.to_datetime("2020-01-01"),
+    
+#     "memory_cell" : 64,
+#     "epochs" : 20,
+#     "batch_size" : 32,
+#     "batch_size" : 0.5,
+#     "pi_iterations" : 100,
+#     "optimizer" : "adam",
+#     "loss" : "mae"
+#     },
+#     {
+#     "validation_type" : "expanding",
+#     "train_prct" : 0.97,    
+#     "test_len" : 7,
+#     "start_date" : pd.to_datetime("2015-01-01"),
+    
+#     "memory_cell" : 128,
+#     "epochs" : 22,
+#     "batch_size" : 36,
+#     "batch_size" : 0.25,
+#     "pi_iterations" : 120,
+#     "optimizer" : "adam",
+#     "loss" : "mae"
+#     }
+# ]
+
+
+# #TODO: implement grid search for lstm (rought idea):
+# for p in grid_search_lstm:
+#     if p["validation_type"] == "rolling":
+#         lstm_m.set_validation_rolling_window(train_percent=p["train_prct"], test_len=p["test_len"], start_date=p["start_date"])
+#     elif p["validation_type"] == "expanding":
+#         lstm_m.set_validation_expanding_window(train_percent=p["train_prct"], test_len=p["test_len"], start_date=p["start_date"])
+
+#     lstm_m.set_model_parameters(**p) #should auto-unpack/-match params of p(grid search lstm)
+#     lstm_m.model_run()
+#     lstm_m.save_all() #TODO: saves model, prediction results (df), params, error values
+
+
+#Simple run (for testing, beofre implementing grid search)
+lstm_m.set_validation_rolling_window(
+    train_percent=0.975,
+    test_len=7, 
+    start_date=config.DEV_START_DATE
+)
+
+lstm_m.set_model_parameters(
+    memory_cell=32,
+    epochs=20,
+    batch_size=32,
+    dropout=0.55,
+    pi_iterations=110, #how often to run, to calculate prediction intervals
+    optimizer="adam",
+    loss="mae",
+    activation_fct="relu"
+)
+lstm_m.set_exogenous_cols(exog_cols = exog_cols)
+lstm_m.set_prediction_column(prediction_column="use_transfused")
+
+lstm_m.print_params()
+
+lstm_params = lstm_m.get_params_df()
+#%%
+lstm_m.model_run()
+
+
 
 
 #%% 
