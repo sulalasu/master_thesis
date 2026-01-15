@@ -536,8 +536,9 @@ lstm_m = model.ModelLSTM(df)
 # That way, would be easy to assign number to saved csv file.
 
 #TODO: this would set the options/borders/steps for grid searching
-exog_cols = ["use_discarded", "use_expired", 'ward_AN', 'ward_CH', 'ward_I1', 'ward_I3', 'ward_Other', 'ward_UC', 
-     "workday_enc", "holiday_enc", "day_of_week", "day_of_year", "year", "tlmin", "tlmax"]
+exog_cols = ["use_discarded", "use_expired"]# TODO:put back in: , 'ward_AN', 'ward_CH', 'ward_I1', 'ward_I3', 'ward_Other', 'ward_UC', "workday_enc", "holiday_enc", "day_of_week", "day_of_year", "year", "tlmin", "tlmax"]
+
+
 
 #TODO: grid search options/possiblilites rough idea:
 # grid_search_lstm_options = {
@@ -602,20 +603,22 @@ exog_cols = ["use_discarded", "use_expired", 'ward_AN', 'ward_CH', 'ward_I1', 'w
 
 #Simple run (for testing, beofre implementing grid search)
 lstm_m.set_validation_rolling_window(
-    train_percent=0.975,
+    train_percent=0.97,#9,#985,#975,
     test_len=7, 
     start_date=config.DEV_START_DATE
 )
 
 lstm_m.set_model_parameters(
-    memory_cell=32,
-    epochs=20,
+    memory_cells=16,#64
+    epochs=3,#20
     batch_size=32,
     dropout=0.55,
-    pi_iterations=110, #how often to run, to calculate prediction intervals
+    pi_iterations=10, #how often to run, to calculate prediction intervals
     optimizer="adam",
     loss="mae",
-    activation_fct="relu"
+    activation_fct="relu",
+    lower_limit=2.5,
+    upper_limit=97.5
 )
 lstm_m.set_exogenous_cols(exog_cols = exog_cols)
 lstm_m.set_prediction_column(prediction_column="use_transfused")

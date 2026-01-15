@@ -6,7 +6,7 @@ ENABLE_LOGGING = True
 SAVE_FIGS = False
 
 #Slice data while developing
-DEV_START_DATE = "2024-01-01"
+DEV_START_DATE = "2024-05-01"
 DEV_END_DATE = "2025-07-01"
 COLUMN = "use_transfused"
 

@@ -1164,7 +1164,7 @@ class ModelLSTM(Model):
         self.model = None
 
         # self.params = None #rename; prob better in base class.
-        # self.memory_cell = None
+        # self.memory_cells = None
         # self.epochs = None
         # self.batch_size = None
         # self.dropout = None
@@ -1175,15 +1175,18 @@ class ModelLSTM(Model):
         self.params = {
             "prediction_column" : None,
 
-            "memory_cell" : None,
+            "memory_cells" : None,
             "epochs" : None,
             "batch_size" : None,
             "dropout" : None,
             "pi_iterations" : None,
             "optimizer" : None,
             "loss" : None,
+
             "activation_fct" : None,
 
+            "lower_limit" : None,
+            "upper_limit" : None,
             "exog_cols" : None
         } #rename; prob better in base class.
 
@@ -1216,22 +1219,28 @@ class ModelLSTM(Model):
 
     def set_model_parameters(
             self, 
-            memory_cell: int=64,
+            memory_cells: int=64,
             epochs: int=20,
             batch_size: int=32,
             dropout: float=0.5,
             pi_iterations: int=100, #how often to run, to calculate prediction intervals
             optimizer: str="adam",
-            loss: str="mae"
+            loss: str="mae",
+            activation_fct: str="relu",
+            lower_limit: float=2.5,
+            upper_limit: float=97.5
             ):
         
-        self.params["memory_cell"] = memory_cell
+        self.params["memory_cells"] = memory_cells
         self.params["epochs"] = epochs
         self.params["batch_size"] = batch_size
         self.params["dropout"] = dropout
         self.params["pi_iterations"] = pi_iterations
         self.params["optimizer"] = optimizer
         self.params["loss"] = loss
+        self.params["activation_fct"] = activation_fct
+        self.params["lower_limit"] = lower_limit
+        self.params["upper_limit"] = upper_limit
 
 
 
@@ -1304,16 +1313,23 @@ class ModelLSTM(Model):
         #TODO: Write docstring
 
         for window in self.validation_sets:
-            X_train_raw, y_train_raw, X_test_raw, y_test_raw = self.get_data() #get X_raw, y_raw data for every iteration in the sliding7expanding window (correct columns)
-            X_train_scaled, y_train_scaled, X_test_scaled, y_test_scaled = self.scale_data(X_train_raw, y_train_raw, X_test_raw, y_test_raw)  #set scaler + transform to scaled data
+            self.reset_states()
+
+            self.get_start_end_days(window)
+            self.get_data() #get X_raw, y_raw data for every iteration in the sliding7expanding window (correct columns)
+            self.scale_data()  #set scaler + transform to scaled data
+            self.get_training_test_set()
             # self.set_train_test() #set train/test sets
             # self.prepare_training_features()
             # self.prepare_test_data()
-            model = self.build_model(window, X_train_scaled)
-            model = self.fit_model(model, X_train_scaled, y_train_scaled) #train model 
+            self.build_model()
+            self.fit_model() #train model 
             self.get_prediction_intervalls() #iterations for prediction intervall
-            self.get_result_df() #make df with results (actual, pred. mean, upper/lower pred interv., )
-            self.get_error_values() #stepwise error metrics
+            self.add_to_results() #TODO: prob not yet workign correctly.
+
+        #TODO: error values.
+        # self.get_result_df() #make df with results (actual, pred. mean, upper/lower pred interv., )
+        # self.get_error_values() #stepwise error metrics
 
 
         # #Get stepwise values:
@@ -1322,7 +1338,19 @@ class ModelLSTM(Model):
         # self.add_stepwise_difference(col_pred=pred_col)
 
 
-    def get_data(self, window):
+
+
+    def get_start_end_days(self, window):
+        self.train_start = window[0]
+        self.train_end = window[1]
+        self.test_start = window[2]
+        self.test_end = window[3]
+
+        self.forecast_days = (window[3] - window[2]).days #because window[2] and window[3] should be both included as days
+
+
+
+    def get_data(self):
         """
         Using the input "window", which contains tuple of start + end date for both train and test sets, it returns
         numpy arrays for each. VAlues are in format of original data (not scaled!) --> "raw".
@@ -1348,20 +1376,19 @@ class ModelLSTM(Model):
         if not self.params["prediction_column"]:
             raise ValueError(f"Missing the column to predict ({self.params['predcition_column']})")
         
-        #
-        columns = self.params["prediction_column"] + self.params["exog_cols"]
+        columns = list(set([self.params["prediction_column"], *self.params["exog_cols"]]))#star* to unpack list, pred_cols is str only.
+        print("cols: ", columns)
 
-        X_train_raw = self.data.loc[window[0] : window[1], columns].values
-        y_train_raw = self.data.loc[window[0] : window[1], self.params["prediction_column"]].values.reshape(-1, 1)
+        self.X_train_raw = self.data.loc[self.train_start : self.train_end, columns].values
+        self.y_train_raw = self.data.loc[self.train_start : self.train_end, self.params["prediction_column"]].values.reshape(-1, 1)
 
-        X_test_raw = self.data.loc[window[2] : window[3], columns].values
-        y_test_raw = self.data.loc[window[2] : window[3], self.params["prediction_column"]].values.reshape(-1, 1)
+        self.X_test_raw = self.data.loc[self.test_start : self.test_end, columns].values
+        self.y_test_raw = self.data.loc[self.test_start : self.test_end, self.params["prediction_column"]].values.reshape(-1, 1)
       
-        return X_train_raw, y_train_raw, X_test_raw, y_test_raw
 
 
 
-    def scale_data(self, X_train_raw: np.ndarray, y_train_raw: np.ndarray, X_test_raw: np.ndarray, y_test_raw: np.ndarray):
+    def scale_data(self):
         """
         Fits and transforms X/y train and test data with StandardScaler().
         Fitted on train data, which is used to transform both train and test data.
@@ -1382,30 +1409,75 @@ class ModelLSTM(Model):
         # rolling/expanding window(s)
         #Uses same scaler, fitted on train data to both test and training of X/y respectively.
 
-        scaler_X = StandardScaler().fit(X_train_raw)
-        scaler_y = StandardScaler().fit(y_train_raw)
+        self.scaler_X = StandardScaler().fit(self.X_train_raw)
+        self.scaler_y = StandardScaler().fit(self.y_train_raw)
 
-        # scaler_X.fit(X_train_raw)
-        # scaler_y.fit(y_train_raw)
 
-        X_train_scaled = scaler_X.transform(X_train_raw)
-        y_train_scaled = scaler_y.transform(y_train_raw)
-        X_test_scaled = scaler_X.transform(X_test_raw)
-        y_test_scaled = scaler_y.transform(y_test_raw)
+        self.X_train_scaled = self.scaler_X.transform(self.X_train_raw)
+        self.y_train_scaled = self.scaler_y.transform(self.y_train_raw)
+        self.X_test_scaled = self.scaler_X.transform(self.X_test_raw)
+        self.y_test_scaled = self.scaler_y.transform(self.y_test_raw)
 
-        return X_train_scaled, y_train_scaled, X_test_scaled, y_test_scaled
-    
+        # self.X_train_scaled = self.X_train_scaled.reshape(1, self.X_train_scaled.shape[0], self.X_train_scaled.shape[1])
+        # self.y_train_scaled = self.y_train_scaled.reshape(1, self.y_train_scaled.shape[0]) #TODO: shape[0] should be equal to self.forecast_days
+        # self.X_test_scaled = self.X_test_scaled.reshape(1, self.X_test_scaled.shape[0], self.X_test_scaled.shape[1])
+        # self.y_test_scaled = self.y_test_scaled.reshape(1, self.y_test_scaled.shape[0])
 
-    def build_model(self, window, X_train_scaled):
+
+
+    def get_training_test_set(self):
+        #splits data of this window into many samples (basically nested rolling window for this window in buld_model)
+        # into X_train with 3D shape of (samples, step_size=l)
+        #This creates x training sets from X_train_scaled by iteration.
+
+
+        # Create sliding window for our data (60days)
+        sliding_size = 365 #TODO: remove hardcoded: this must be set elsewhere, including check for viablility of len
+        
+        # window_training_len = self.X_train_scaled.shape[0] #TODO: rename, could be mistaken with len of whole 
+        window_training_len = self.X_train_raw.shape[0] #TODO: rename, could be mistaken with len of whole 
+        training_data_len = self.X_train_scaled.shape[0]
+
+        # Prep training features
+        self.X_train, self.y_train = [], []                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+        # for i in range(sliding_size, window_training_len - self.forecast_days): #(sliding_size, training_data_len):
+        for i in range(sliding_size, self.X_train_raw.shape[0] - self.forecast_days): #(sliding_size, training_data_len):
+            self.X_train.append(self.X_train_scaled[i - sliding_size : i, :])
+            self.y_train.append(self.y_train_scaled[i : i + self.forecast_days, 0])
+
+        self.X_train = np.array(self.X_train)
+        self.y_train = np.array(self.y_train)
+
+
+        #Prep test data
+        # test_data = scaled_data[training_data_len - sliding_size : ]
+        self.X_test = []
+        self.y_test = [] #this is unscaled (raw) data, but different format in the end!
+
+        # for i in range(training_data_len, len(scaled_X) - forecast_days): #sliding_size, len(test_data)):
+        # for i in range(self.X_train_raw.shape[0] - self.y_test_raw.shape[0], self.X_train_raw.shape[0] + self.y_test_raw.shape[0] - self.forecast_days): #sliding_size, len(test_data)):
+        for i in range(self.X_train_raw.shape[0], self.X_train_raw.shape[0] + self.X_test_raw.shape[0] - self.forecast_days):
+            self.X_test.append(self.X_train_scaled[i - sliding_size : i , :])
+            self.y_test.append(self.y_test_raw[0 : self.forecast_days, 0])
+            # self.y_test.append(self.y_test_raw[i : i + self.forecast_days, 0])
+
+        self.X_test = np.array(self.X_test)
+        #X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))
+        self.y_test = np.array(self.y_test)
+
+        
+
+    def build_model(self):
 
         #get number of days to forecast from window input:
-        first_day_fc = window[2]
-        last_day_fc = window[3]
-        print("first/last days:", first_day_fc, last_day_fc) #TODO: delete
-        forecast_days = last_day_fc - first_day_fc #TODO: better naming!
-        print("DAys of forecast (should be 7: )", forecast_days) #TODO: delete
+        # first_day_fc = self.test_start
+        # last_day_fc = self.test_end
+        # print("first/last days:", first_day_fc, last_day_fc) #TODO: delete
+        # forecast_days = last_day_fc - first_day_fc #TODO: better naming!
+        # print("DAys of forecast (should be 7: )", forecast_days) #TODO: delete
 
-        inputs = Input(shape=(X_train_scaled.shape[1], X_train_scaled.shape[2]))
+        inputs = Input(shape=(self.X_train.shape[1], self.X_train.shape[2])) #TODO: was 1, 2
+        # inputs = Input(shape=(self.X_train_scaled.shape[1], self.X_train_scaled.shape[2])) #TODO: was 1, 2
         x = layers.LSTM(self.params["memory_cells"], return_sequences=True)(inputs)
         x = layers.LSTM(self.params["memory_cells"], return_sequences=False)(x)
         x = layers.Dense(2*self.params["memory_cells"], activation=self.params["activation_fct"])(x)
@@ -1413,44 +1485,108 @@ class ModelLSTM(Model):
         x = layers.Dropout(0.5)(x, training=True)
 
         #output layer: x neurons for x days forecasting
-        outputs = layers.Dense(forecast_days)(x)
+        outputs = layers.Dense(self.forecast_days)(x)
 
-        model = keras.Model(inputs, outputs)
-        model.compile(optimizer="adam", loss="mae", metrics=[keras.metrics.RootMeanSquaredError()])
+        self.model = keras.Model(inputs, outputs)
+        self.model.compile(optimizer="adam", loss="mae", metrics=[keras.metrics.RootMeanSquaredError()])
 
-        return model
     
 
 
-    def fit_model(self, model, X_train_scaled, y_train_scaled):
-
-        model.fit(X_train_scaled, y_train_scaled, epochs=self.params["epochs"], batch_size=self.params["batch_size"], verbose=1)
-
-        return model
+    def fit_model(self):
+        print(self.X_train.shape)
+        print(self.y_train.shape)
+        self.model.fit(
+            self.X_train, 
+            self.y_train, 
+            epochs=self.params["epochs"], 
+            batch_size=1,#self.params["batch_size"], 
+            verbose=1
+        )
     
 
 
-    def get_prediction_intervalls(self, model):
+    def get_prediction_intervalls(self):
 
-        all_predictions = []
+        self.all_predictions = []
 
-        for _ in range(n_iterations):
+        for _ in range(self.params["pi_iterations"]):
             print(f"Iteration {_}")
-            all_predictions.append(
-                scaler_y.inverse_transform(model(X_test, training=True, verbose=0).numpy())
+
+            self.all_predictions.append(
+                self.scaler_y.inverse_transform(self.model(self.X_test, training=True, verbose=0).numpy())
             )
-            # all_predictions.append(
-            #     scaler_y.inverse_transform(model.predict(X_test, verbose=0))
-            # )
 
-        all_predictions = np.array(all_predictions)
 
-        forecast_mean = np.mean(all_predictions, axis=0)
-        forecast_lower = np.percentile(all_predictions, 2.5, axis=0)
-        forecast_upper = np.percentile(all_predictions, 97.5, axis=0)
+        self.all_predictions = np.array(self.all_predictions)
+
+        self.forecast_mean = np.mean(self.all_predictions, axis=0)
+        self.forecast_lower = np.percentile(self.all_predictions, self.params["lower_limit"], axis=0)
+        self.forecast_upper = np.percentile(self.all_predictions, self.params["upper_limit"], axis=0)
 
 
 
+    def add_to_results(self):
+        #Adds this window-iterations forecast_days (n days) to a self.result df.
+
+        self.result = {}
+        for day in range(1, self.forecast_days + 1):
+            day_label = f"Day_{day}"
+
+            self.result[day_label] = pd.DataFrame(
+                index = self.data[self.test_start:self.test_end].index
+            )
+
+
+        # Fill empty (index only) dfs:
+        for day in range(self.forecast_days):
+            day_label = f"Day_{day+1}"
+
+            day_predictions = self.all_predictions[:, :, day]
+
+            self.result[day_label]["Actual"] = self.y_test #[:, day]
+            self.result[day_label]["Mean"] = np.mean(day_predictions, axis=0)
+            self.result[day_label]["Lower"] = np.percentile(day_predictions, 2.5, axis=0)
+            self.result[day_label]["Upper"] = np.percentile(day_predictions, 97.5, axis=0)
+
+        print(self.result["Day_1"].head())
+        # self.result.append()
+
+
+    def reset_states(self):
+        #resets all self values used in model_run
+
+        #resets all states generated by tensorflow-keras
+        keras.backend.clear_session()
+
+        gc.collect()
+
+        self.train_start = None
+        self.train_end = None
+        self.test_start = None
+        self.test_end = None
+        self.forecast_days = None
+
+        self.X_train_raw = None
+        self.y_train_raw = None
+        self.X_test_raw = None
+        self.y_test_raw = None
+
+        self.scaler_X = None
+        self.scaler_y = None
+
+        self.X_train_scaled = None
+        self.y_train_scaled = None
+        self.X_test_scaled = None
+        self.y_test_scaled = None   
+
+        self.model = None
+
+        self.forecast_mean = None
+        self.forecast_lower = None
+        self.forecast_upper = None
+
+        #dont reset self.results
 
 
 
