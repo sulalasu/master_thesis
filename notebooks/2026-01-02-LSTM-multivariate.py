@@ -465,8 +465,8 @@ y_raw = data[COLUMN].values.reshape(-1, 1)
 scaler_X = StandardScaler()
 scaler_y = StandardScaler()
 
-scaler_X.fit(X_raw[:training_data_len, :]) #TODO: this needs to be training only,otherwise information leak into scaler
-scaler_y.fit(y_raw[:training_data_len, :]) #TODO: this needs to be training only,otherwise information leak into scaler
+scaler_X.fit(X_raw[:training_data_len, :]) #DONE: this needs to be training only,otherwise information leak into scaler
+scaler_y.fit(y_raw[:training_data_len, :]) #DONE: this needs to be training only,otherwise information leak into scaler
 
 scaled_X = scaler_X.transform(X_raw) 
 scaled_y = scaler_y.transform(y_raw) 
@@ -476,7 +476,7 @@ scaled_y = scaler_y.transform(y_raw)
 
 #----------------------------------
 # Create sliding window for our data (60days)
-sliding_size = 120 
+sliding_size = 365 
 forecast_days = 3 #days more than on day ahead
 
 # Prep training features

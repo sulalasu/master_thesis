@@ -17,6 +17,8 @@ from src import model
 from src import transform
 from src import viz
 
+import uuid
+
 
 #For developing purposes:
 import importlib
@@ -527,6 +529,7 @@ print(sarima.stepwise_forecast_errors)
 importlib.reload(model)
 importlib.reload(config) #for DEV_START_DATE
 
+
 lstm_m = model.ModelLSTM(df)
 
 
@@ -605,20 +608,20 @@ exog_cols = ["use_discarded", "use_expired"]# TODO:put back in: , 'ward_AN', 'wa
 lstm_m.set_validation_rolling_window(
     #TODO: store validation_sets as df: index + columns train start/train end/test start/test end
     #TODO: add option to choose days for train and test period.
-    train_percent=0.9,#9,#985,#975,
-    test_len=14, 
-    start_date=config.DEV_START_DATE
+    train_percent=0.95,#9,#985,#975,
+    test_len=3, 
+    start_date="2024-12-01"
 )
 
-
+#%%
 lstm_m.set_model_parameters(
-    inner_window = 365, #365 to capture at least 1 year, #for training length
+    inner_window = 100, #365*2 #365 to capture at least 1 year, #for training length
 
-    memory_cells=64,#64
-    epochs=20,#20
+    memory_cells=16,#64
+    epochs=2,#20
     batch_size=32,
-    dropout=0.55,
-    pi_iterations=100, #how often to run, to calculate prediction intervals
+    dropout=0.9,
+    pi_iterations=3, #100 #how often to run, to calculate prediction intervals
     optimizer="adam",
     loss="mae",
     activation_fct="relu",
@@ -632,8 +635,11 @@ lstm_m.print_params()
 
 lstm_params = lstm_m.get_params_df()
 #%%
+#Run model
 lstm_m.model_run()
 
+#%%
+#Get error values + plotting
 
 
 
