@@ -1,6 +1,7 @@
 #TODO: is it necessary to load the modules here?
 from src import data_model
 from src import config
+from src.utils import timer_func
 
 import pandas as pd
 import numpy as np
@@ -20,6 +21,11 @@ from tensorflow import keras
 from sklearn.preprocessing import StandardScaler
 from keras import Input, layers, Model
 
+import time
+from datetime import datetime
+from pathlib import Path
+import json
+
 
 
 
@@ -35,9 +41,10 @@ class Model:
     # here only general methods needed for the models
 
 
-    def __init__(self, data: data_model.Data): #TODO: maybe add configuration?
+    def __init__(self, data: data_model.Data, uuid: str=None): #TODO: maybe add configuration?
         # TODO: change parameter of model to be of 'Data' type
         self.data = data
+        self.uuid = None
 
         #Train/Test sets:
         self.split_index = None #Index at split point
@@ -1219,6 +1226,7 @@ class ModelLSTM(Model):
 
     def set_model_parameters(
             self, 
+            inner_window: int=365,
             memory_cells: int=64,
             epochs: int=20,
             batch_size: int=32,
@@ -1231,6 +1239,7 @@ class ModelLSTM(Model):
             upper_limit: float=97.5
             ):
         
+        self.params["inner_window"] = inner_window
         self.params["memory_cells"] = memory_cells
         self.params["epochs"] = epochs
         self.params["batch_size"] = batch_size
@@ -1311,8 +1320,11 @@ class ModelLSTM(Model):
         # expanding/rolling window needs to be set already!
 
         #TODO: Write docstring
-
-        for window in self.validation_sets:
+        all_windows_start = time.time()
+        for i, window in enumerate(self.validation_sets):
+            print(f"Window {i}/{len(self.validation_sets)}")
+            window_start = time.time()
+            
             self.reset_states()
 
             self.get_start_end_days(window)
@@ -1323,10 +1335,18 @@ class ModelLSTM(Model):
             # self.prepare_training_features()
             # self.prepare_test_data()
             self.build_model()
+
             self.fit_model() #train model 
             self.get_prediction_intervalls() #iterations for prediction intervall
             self.add_to_results() #TODO: prob not yet workign correctly.
+            
+            window_end = time.time()
+            print(f"Window {i} executed in {window_end - window_start}s\n")
 
+        all_windows_end = time.time()
+        print(f"\nTotal time for all windows {all_windows_end - all_windows_start}s")
+
+        self.save_results()
         #TODO: error values.
         # self.get_result_df() #make df with results (actual, pred. mean, upper/lower pred interv., )
         # self.get_error_values() #stepwise error metrics
@@ -1341,10 +1361,14 @@ class ModelLSTM(Model):
 
 
     def get_start_end_days(self, window):
+        # since lstm works better with running multiple inputs (like a rolling window) and supplying y  so it can adjust
+        # weights and biases more often. so we do an inner loop for the forecast window supplied by rolling/expanding window 
+        # (=validations_sets).
+        # This means we treat every validation set like its own timeframe, where we use , up to that day, and only
         self.train_start = window[0]
         self.train_end = window[1]
         self.test_start = window[2]
-        self.test_end = window[3]
+        self.test_end = window[3] - pd.Timedelta(days=1)
 
         self.forecast_days = (window[3] - window[2]).days #because window[2] and window[3] should be both included as days
 
@@ -1377,7 +1401,7 @@ class ModelLSTM(Model):
             raise ValueError(f"Missing the column to predict ({self.params['predcition_column']})")
         
         columns = list(set([self.params["prediction_column"], *self.params["exog_cols"]]))#star* to unpack list, pred_cols is str only.
-        print("cols: ", columns)
+        # print("cols: ", columns)
 
         self.X_train_raw = self.data.loc[self.train_start : self.train_end, columns].values
         self.y_train_raw = self.data.loc[self.train_start : self.train_end, self.params["prediction_column"]].values.reshape(-1, 1)
@@ -1432,8 +1456,8 @@ class ModelLSTM(Model):
 
 
         # Create sliding window for our data (60days)
-        sliding_size = 365 #TODO: remove hardcoded: this must be set elsewhere, including check for viablility of len
-        
+        # sliding_size = 365 #TODO: remove hardcoded: this must be set elsewhere, including check for viablility of len
+        sliding_size = self.params["inner_window"] #TODO: maybe rename?
         # window_training_len = self.X_train_scaled.shape[0] #TODO: rename, could be mistaken with len of whole 
         window_training_len = self.X_train_raw.shape[0] #TODO: rename, could be mistaken with len of whole 
         training_data_len = self.X_train_scaled.shape[0]
@@ -1441,9 +1465,13 @@ class ModelLSTM(Model):
         # Prep training features
         self.X_train, self.y_train = [], []                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
         # for i in range(sliding_size, window_training_len - self.forecast_days): #(sliding_size, training_data_len):
-        for i in range(sliding_size, self.X_train_raw.shape[0] - self.forecast_days): #(sliding_size, training_data_len):
-            self.X_train.append(self.X_train_scaled[i - sliding_size : i, :])
-            self.y_train.append(self.y_train_scaled[i : i + self.forecast_days, 0])
+        # for i in range(sliding_size, self.X_train_raw.shape[0] - self.forecast_days): #(sliding_size, training_data_len):
+        #     self.X_train.append(self.X_train_scaled[i - sliding_size : i, :])
+        #     self.y_train.append(self.y_train_scaled[i : i + self.forecast_days, 0])
+        for i in range(0, self.X_train_raw.shape[0] - sliding_size - self.forecast_days): #(sliding_size, training_data_len):
+            self.X_train.append(self.X_train_scaled[i : i + sliding_size, :])
+            self.y_train.append(self.y_train_scaled[i + sliding_size : i + sliding_size + self.forecast_days, 0])
+
 
         self.X_train = np.array(self.X_train)
         self.y_train = np.array(self.y_train)
@@ -1451,19 +1479,24 @@ class ModelLSTM(Model):
 
         #Prep test data
         # test_data = scaled_data[training_data_len - sliding_size : ]
-        self.X_test = []
-        self.y_test = [] #this is unscaled (raw) data, but different format in the end!
+        # self.X_test = []
+        # self.y_test = [] #this is unscaled (raw) data, but different format in the end!
 
         # for i in range(training_data_len, len(scaled_X) - forecast_days): #sliding_size, len(test_data)):
         # for i in range(self.X_train_raw.shape[0] - self.y_test_raw.shape[0], self.X_train_raw.shape[0] + self.y_test_raw.shape[0] - self.forecast_days): #sliding_size, len(test_data)):
-        for i in range(self.X_train_raw.shape[0], self.X_train_raw.shape[0] + self.X_test_raw.shape[0] - self.forecast_days):
-            self.X_test.append(self.X_train_scaled[i - sliding_size : i , :])
-            self.y_test.append(self.y_test_raw[0 : self.forecast_days, 0])
+        # for i in range(self.X_train_raw.shape[0], self.X_train_raw.shape[0] + self.X_test_raw.shape[0] - self.forecast_days):
+        #     self.X_test.append(self.X_train_scaled[i - sliding_size : i , :])
+        #     self.y_test.append(self.y_test_raw[0 : self.forecast_days, 0])
             # self.y_test.append(self.y_test_raw[i : i + self.forecast_days, 0])
+        self.X_test = self.X_train_scaled[-sliding_size : , :]
+        self.y_test = self.y_test_scaled
 
-        self.X_test = np.array(self.X_test)
+
+        # self.X_test = np.array(self.X_test)
+        self.X_test = np.reshape(self.X_test, (1, self.X_test.shape[0], self.X_test.shape[1]))
         #X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))
-        self.y_test = np.array(self.y_test)
+        self.y_test = np.reshape(self.y_test, (self.y_test.shape[1], self.y_test.shape[0])) #change (x, y) to (y, x) where y_test_scaled = (fc_window, 1)
+        # self.y_test = np.array(self.y_test)
 
         
 
@@ -1488,30 +1521,30 @@ class ModelLSTM(Model):
         outputs = layers.Dense(self.forecast_days)(x)
 
         self.model = keras.Model(inputs, outputs)
-        self.model.compile(optimizer="adam", loss="mae", metrics=[keras.metrics.RootMeanSquaredError()])
+        self.model.compile(optimizer=self.params["optimizer"], loss=self.params["loss"], metrics=[keras.metrics.RootMeanSquaredError()])
 
     
 
 
     def fit_model(self):
-        print(self.X_train.shape)
-        print(self.y_train.shape)
+        # print(self.X_train.shape)
+        # print(self.y_train.shape)
         self.model.fit(
-            self.X_train, 
-            self.y_train, 
+            x=self.X_train, 
+            y=self.y_train, 
             epochs=self.params["epochs"], 
-            batch_size=1,#self.params["batch_size"], 
-            verbose=1
+            batch_size=self.params["batch_size"], 
+            verbose=0
         )
     
 
-
+    @timer_func
     def get_prediction_intervalls(self):
 
         self.all_predictions = []
 
         for _ in range(self.params["pi_iterations"]):
-            print(f"Iteration {_}")
+            #print(f"Iteration {_}")
 
             self.all_predictions.append(
                 self.scaler_y.inverse_transform(self.model(self.X_test, training=True, verbose=0).numpy())
@@ -1520,36 +1553,88 @@ class ModelLSTM(Model):
 
         self.all_predictions = np.array(self.all_predictions)
 
-        self.forecast_mean = np.mean(self.all_predictions, axis=0)
-        self.forecast_lower = np.percentile(self.all_predictions, self.params["lower_limit"], axis=0)
-        self.forecast_upper = np.percentile(self.all_predictions, self.params["upper_limit"], axis=0)
+        # self.forecast_mean = np.mean(self.all_predictions, axis=0)
+        # self.forecast_lower = np.percentile(self.all_predictions, self.params["lower_limit"], axis=0)
+        # self.forecast_upper = np.percentile(self.all_predictions, self.params["upper_limit"], axis=0)
 
 
+
+    # def add_to_results(self):
+    #     #Adds this window-iterations forecast_days (n days) to a self.result df.
+
+    #     self.result = {}
+    #     for day in range(1, self.forecast_days + 1):
+    #         day_label = f"Day_{day}"
+
+    #         self.result[day_label] = pd.DataFrame(
+    #             index = self.data[self.test_start:self.test_end].index
+    #         )
+
+
+    #     # Fill empty (index only) dfs:
+    #     for day in range(self.forecast_days):
+    #         day_label = f"Day_{day+1}"
+
+    #         day_predictions = self.all_predictions[:, :, day]
+
+    #         self.result[day_label]["Actual"] = self.y_test[day, :]
+    #         self.result[day_label]["Mean"] = np.mean(day_predictions, axis=0)
+    #         self.result[day_label]["Lower"] = np.percentile(day_predictions, 2.5, axis=0)
+    #         self.result[day_label]["Upper"] = np.percentile(day_predictions, 97.5, axis=0)
+
+    #     print(self.result["Day_1"].head())
+    #     # self.result.append()
 
     def add_to_results(self):
-        #Adds this window-iterations forecast_days (n days) to a self.result df.
+        #Add to existing self.result dictionary. self.result contains n keys of name "Day_"n_i where n=len(fc_days)
+        # with the value of a dataframe with columns Actual, Mean, Lower, Upper and datetime index. 
+        # Each dataframe gets expanded/filled in every window-iteration by the current (of the window) value of the day
+        # and date. So in the first window with 14 fc days, 14 empty dataframes with keys of Day_1 to Day_14 get filled.
+        # Say first day is 01.01., then Day_1 gets one row with actual/mean/lower/upper for 01.01., Day_2 for 02.01. etc.
+        # In the next window, Day_1 gets a new row for day 02.01. and so on.
 
-        self.result = {}
-        for day in range(1, self.forecast_days + 1):
-            day_label = f"Day_{day}"
+        #Initialize self.result if not exists.
+        # Creates n (=forecast_days) empty dataframes in a dict, each containing datetime index from day_n in the 
+        # test/validation period.  
+        #TODO: better to implement in __init__
+        if not hasattr(self, "result") or self.result == None:
+            self.result = {}
+            for fc_day in range(self.forecast_days):
+                day_label = f"Day_{fc_day + 1}"
 
-            self.result[day_label] = pd.DataFrame(
-                index = self.data[self.test_start:self.test_end].index
-            )
+                start_date = self.validation_sets[0][2]
+                end_date = self.validation_sets[-1][2] + pd.Timedelta(days=fc_day)
 
+                self.result[day_label] = pd.DataFrame(
+                    index=pd.date_range(start_date, end_date),
+                    columns=["Actual", "Mean", "Lower", "Upper"]
+                )
 
-        # Fill empty (index only) dfs:
+        y_test_original_scale = self.scaler_y.inverse_transform(self.y_test)
+
+        #fill the dataframes
         for day in range(self.forecast_days):
-            day_label = f"Day_{day+1}"
+            day_label = f"Day_{day + 1}"
+            forecast_date = self.test_start + pd.Timedelta(days=day)
 
-            day_predictions = self.all_predictions[:, :, day]
+            day_predictions = self.all_predictions[:, 0, day] #shape of (np_iterations, 1, forecast_days)
 
-            self.result[day_label]["Actual"] = self.y_test #[:, day]
-            self.result[day_label]["Mean"] = np.mean(day_predictions, axis=0)
-            self.result[day_label]["Lower"] = np.percentile(day_predictions, 2.5, axis=0)
-            self.result[day_label]["Upper"] = np.percentile(day_predictions, 97.5, axis=0)
+            self.result[day_label].loc[forecast_date, "Actual"] = y_test_original_scale[0, day]
+            # self.result[day_label].loc[forecast_date, "Actual"] = self.y_test[day, :]
+            self.result[day_label].loc[forecast_date, "Mean"] = np.mean(day_predictions, axis=None) #alternative: axis=0)[0]
+            self.result[day_label].loc[forecast_date, "Lower"] = np.percentile(day_predictions, 2.5, axis=None)
+            self.result[day_label].loc[forecast_date, "Upper"] = np.percentile(day_predictions, 97.5, axis=None)
 
-        print(self.result["Day_1"].head())
+
+
+
+
+
+
+        # try:
+        #     print(self.result["Day_1"].head())
+        # except Exception as e:
+        #     print("printing print(self.result['Day_1'].head()) didnt work")
         # self.result.append()
 
 
@@ -1585,8 +1670,25 @@ class ModelLSTM(Model):
         self.forecast_mean = None
         self.forecast_lower = None
         self.forecast_upper = None
-
         #dont reset self.results
+
+
+    def save_results(self):
+        #date+hh:mm+grid(uuid if doing grid search)
+        date = datetime.now().strftime("%Y%m%d_%H%M")
+        if self.uuid:
+            dir_name = f"{date}-{self.uuid}-lstm"
+        else:
+            dir_name = f"{date}-lstm"
+        #make directory with name (see above)
+        Path("./results/"+dir_name).mkdir(parents=True, exist_ok=True)
+
+        #make params json
+        with open("params.json", "w") as f:
+            json.dump(self.params, f)
+        #make csv for every fc_day
+        for fc_day, df in self.result.items():
+            df.to_csv(path_or_buf=path+"/"+key ,sep=";")
 
 
 

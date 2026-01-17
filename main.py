@@ -603,17 +603,22 @@ exog_cols = ["use_discarded", "use_expired"]# TODO:put back in: , 'ward_AN', 'wa
 
 #Simple run (for testing, beofre implementing grid search)
 lstm_m.set_validation_rolling_window(
-    train_percent=0.97,#9,#985,#975,
-    test_len=7, 
+    #TODO: store validation_sets as df: index + columns train start/train end/test start/test end
+    #TODO: add option to choose days for train and test period.
+    train_percent=0.9,#9,#985,#975,
+    test_len=14, 
     start_date=config.DEV_START_DATE
 )
 
+
 lstm_m.set_model_parameters(
-    memory_cells=16,#64
-    epochs=3,#20
+    inner_window = 365, #365 to capture at least 1 year, #for training length
+
+    memory_cells=64,#64
+    epochs=20,#20
     batch_size=32,
     dropout=0.55,
-    pi_iterations=10, #how often to run, to calculate prediction intervals
+    pi_iterations=100, #how often to run, to calculate prediction intervals
     optimizer="adam",
     loss="mae",
     activation_fct="relu",
