@@ -1,5 +1,6 @@
 data/
 data.*
+results/*
 src/config.py #contains sensitive info regarding wards and EC storage number
 todo.txt
 references/
