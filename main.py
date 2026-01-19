@@ -404,16 +404,16 @@ comp.print_parameters()
 
 comp.model_run()
 
-comp.result
+comp.predictions
 
 comp.get_error_values()
 
 
-for col in comp.result.columns:
+for col in comp.predictions.columns:
     if col == "use_transfused":
-        plt.plot(comp.result.loc["2024-01-01":"2024-07-31", col], linewidth=1.5, label=col)
+        plt.plot(comp.predictions.loc["2024-01-01":"2024-07-31", col], linewidth=1.5, label=col)
     else:
-        plt.plot(comp.result.loc["2024-01-01":"2024-07-31", col], linewidth=0.5, label=col)
+        plt.plot(comp.predictions.loc["2024-01-01":"2024-07-31", col], linewidth=0.5, label=col)
     plt.legend()
 #%% 
 # MARK: ARIMA
@@ -543,23 +543,76 @@ exog_cols = ["use_discarded", "use_expired"]# TODO:put back in: , 'ward_AN', 'wa
 
 
 
-#TODO: grid search options/possiblilites rough idea:
-# grid_search_lstm_options = {
-#     "validation_type" : ["rolling", "expanding"],
-#     "train_prct" : range(0.6, 0.8, step=0.1), #wouldnt it make more sense to use int of days before to train? like train_days = 365*7 or 730 or something?
-#     "test_len" : [7],
-#     "start_date" : [pd.to_datetime(day) for day in ["2008-01-01", "20012-01-01", "20016-01-01", "2020-01-01", "2024-01-01"]],
-    
-#     "memory_cell" : [32, 64, 128],
-#     "epochs" : [20],
-#     "batch_size" : [32],
-#     "batch_size" : [0.3, 0.5, 0.7],
-#     "pi_iterations" : [100, 1000],
-#     "optimizer" : ["adam"],
-#     "loss" : ["mae"],
-#     "exog_cols" : exog_cols #this would need to be 0-all of them? or just 0 + all?
-# }
+#Simple run (for testing, beofre implementing grid search)
+lstm_m.set_validation_rolling_window(
+    #TODO: store validation_sets as df: index + columns train start/train end/test start/test end
+    #TODO: add option to choose days for train and test period.
+    train_percent=0.95,#9,#985,#975,
+    test_len=14, 
+    start_date="2022-10-01"
+)
 
+#%%
+lstm_m.set_model_parameters(
+    inner_window = 365*2, #365*2 #365 to capture at least 1 year, #for training length
+
+    memory_cells=64,#64
+    epochs=20,#20
+    batch_size=32, #32
+    dropout=0.5,
+    pi_iterations=100, #100 #how often to run, to calculate prediction intervals
+    optimizer="adam",
+    loss="mae",
+    activation_fct="relu",
+    lower_limit=2.5,
+    upper_limit=97.5
+)
+lstm_m.set_exogenous_cols(exog_cols = exog_cols)
+lstm_m.set_prediction_column(prediction_column="use_transfused")
+
+lstm_m.print_params()
+
+lstm_params = lstm_m.get_params_df()
+#%%
+#Run model
+lstm_m.model_run()
+
+#%%
+#Get error values + plotting
+
+
+
+#%%
+#Try gridsearch:
+
+from itertools import product
+import numpy as np
+import pandas as pd
+
+#TODO: grid search options/possiblilites rough idea:
+grid_search_lstm_options = {
+    "validation_type" : ["rolling"], #, "expanding"],
+    "train_prct" : list(np.arange(0.6, 0.8, 0.1)), #wouldnt it make more sense to use int of days before to train? like train_days = 365*7 or 730 or something?
+    "test_len" : [14],
+    "start_date" : [pd.to_datetime(day) for day in ["2008-01-01", "2012-01-01", "2016-01-01", "2020-01-01", "2024-01-01"]],
+    
+    "memory_cell" : [32, 64, 128],
+    "epochs" : [20, 100],
+    "batch_size" : [32],
+    "pi_iterations" : [100, 1000],
+    "optimizer" : ["adam"],
+    "loss" : ["mae"]#,
+    #"exog_cols" : exog_cols #this would need to be 0-all of them? or just 0 + all?
+}
+
+search_grid = list(product(*grid_search_lstm_options.values()))
+#fill dict with lists values:
+for grid in search_grid[0:10]:
+    search_grid_dict = dict(zip(grid_search_lstm_options, grid))
+    print(search_grid_dict)
+
+
+    
 # #TODO: grid search -- this is what a possible list of dicts could look like (missing exog_cols):
 # grid_search_lstm = [{
 #     "validation_type" : "rolling",
@@ -604,42 +657,8 @@ exog_cols = ["use_discarded", "use_expired"]# TODO:put back in: , 'ward_AN', 'wa
 #     lstm_m.save_all() #TODO: saves model, prediction results (df), params, error values
 
 
-#Simple run (for testing, beofre implementing grid search)
-lstm_m.set_validation_rolling_window(
-    #TODO: store validation_sets as df: index + columns train start/train end/test start/test end
-    #TODO: add option to choose days for train and test period.
-    train_percent=0.95,#9,#985,#975,
-    test_len=3, 
-    start_date="2024-12-01"
-)
 
-#%%
-lstm_m.set_model_parameters(
-    inner_window = 100, #365*2 #365 to capture at least 1 year, #for training length
 
-    memory_cells=16,#64
-    epochs=2,#20
-    batch_size=32,
-    dropout=0.9,
-    pi_iterations=3, #100 #how often to run, to calculate prediction intervals
-    optimizer="adam",
-    loss="mae",
-    activation_fct="relu",
-    lower_limit=2.5,
-    upper_limit=97.5
-)
-lstm_m.set_exogenous_cols(exog_cols = exog_cols)
-lstm_m.set_prediction_column(prediction_column="use_transfused")
-
-lstm_m.print_params()
-
-lstm_params = lstm_m.get_params_df()
-#%%
-#Run model
-lstm_m.model_run()
-
-#%%
-#Get error values + plotting
 
 
 
@@ -667,6 +686,8 @@ test_df = df.loc[split_date:end_date, sel_cols]
 df.info()
 train_df.info()
 test_df.info()
+
+prophet_m = model.ModelProphet(df)
 
 
 #%%
@@ -740,380 +761,3 @@ fc.head()
 
 
 # TODO: save data to csv
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-# SAMPLE DATA
-#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-
-#%% ------------------------------------------------------------------------------
-# Get data & clean
-from sklearn.datasets import fetch_openml
-df = fetch_openml("seoul_bike_sharing_demand", as_frame=True)
-df = pd.DataFrame(df.frame)
-
-df.rename(mapper=config.seoul_name_map, axis=1, inplace=True)
-print("seoul head\n\n")
-df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d")
-df["hour"] = pd.to_datetime(df["hour"], format="%H").dt.time
-
-load.show_info(df=df)
-
-#%% Skip -- CLEANING -- 
-
-
-# ------------------------------------------------------------------------------
-# -- PROCESSING -- 
-
-# Merge date + time --> date
-# df["hour"] = pd.to_datetime(df["hour"], format="%H:%M:%S")
-df["date"] = pd.to_datetime(df.date.astype(str) + " " + df.hour.astype(str))
-df = df.drop(columns="hour")
-
-# Show info/head
-df.info()
-df.head()
-
-# Aggregate daily:
-print(df.info())
-df = df.drop(columns=["seasons", "holiday", "functioning_day"])
-df = df.resample('D', on="date").sum()
-#df = df.reset_index()
-load.show_info(df=df)
-
-
-
-
-
-#---------------------------------------------------------------------------------
-# -- VISUALIZE OOP --
-# --------------------------------------------------------------------------------
-# Daily average ________________________________________________________________
-# TODO: wrap in function (or add to Model?, because its already cleaned+processed here, so next step
-# besides viz would be add to model anyway? BUT exploratory viz is done on raw data, so no specific model...
-# TODO: make prettier: add title, colorchart (so i can later exchange colors), etc.
-
-
-#%%
-# Load data as Class Data:
-#TODO: rename previous 'df' to 'df_preprocessed' or something, 
-# to differentiate between Data object and DataFrame object
-importlib.reload(data_model)
-df = data_model.Data(data=df)
-#%%
-df.plot_seasonal(plot_type='daily', col_name='count')
-df.plot_seasonal(plot_type='weekly', col_name='count')
-
-
-
-#%%
-#Boxplots
-df.plot_boxplots(col_name='count')
-df.plot_seasonal_subseries(col_name='count') #NOTE: i think it works, but not enough dummy data.
-#TODO: check if seasonal subseries plot works with multi-year data
-
-
-#%%
-#Decompose
-df.decompose_one(col_name='count')
-#df.decompose_all("use_transfused")
-
-# mulitple decomposition (daily + weekly)
-df.multiple_decompose(col_name="use_transfused", periods=[24, 24*7])
-
-
-
-
-
-#%%
-#Time series plots (acf, pacf etc)
-df.plot_autocorrelation(col_name='count')
-df.plot_partial_autocorrelation(col_name='count')
-
-
-#%%
-df.plot_daily_heatmap(col_name='count')
-
-
-#%%
-
-import holidays
-
-vie_holidays = holidays.country_holidays('Austria', subdiv='W')
-
-
-print(vie_holidays)
-
-vie_holidays.get('2024-01-01')
-
-print(vie_holidays.is_working_day('2024-01-01'))
-print(vie_holidays.is_working_day('2024-12-24'))
-print(vie_holidays.is_working_day('2005-12-25'))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#%% ------------------------------------------------------------------------------
-# -- PROCESSING 2 --
-# --------------------------------------------------------------------------------
-#%%
-
-# Order of differencing "d" -- detrending
-#detrending/plotting:
-from statsmodels.graphics.tsaplots import plot_acf
-from statsmodels.tsa.stattools import adfuller
-
-plot_acf(df["use_transfused"])
-#%% Detrend ______________________________________________________________________
-f = plt.figure()
-ax1 = f.add_subplot(121)
-ax1.set_title("No differencing")
-ax1.plot(df["use_transfused"])
-
-ax2 = f.add_subplot(122)
-plot_acf(df["use_transfused"].dropna(), ax=ax2)
-plt.show()
-
-
-f = plt.figure()
-ax1 = f.add_subplot(121)
-ax1.set_title("1st order differencing")
-ax1.plot(df["use_transfused"].diff())
-
-ax2 = f.add_subplot(122)
-plot_acf(df["use_transfused"].diff().dropna(), ax=ax2)
-plt.show()
-
-
-f = plt.figure()
-ax1 = f.add_subplot(121)
-ax1.set_title("2nd order differencing")
-ax1.plot(df["use_transfused"].diff().diff())
-
-ax2 = f.add_subplot(122)
-plot_acf(df["use_transfused"].diff().diff().dropna(), ax=ax2)
-plt.show()
-
-
-f = plt.figure()
-ax1 = f.add_subplot(121)
-ax1.set_title("3rd order differencing")
-ax1.plot(df["use_transfused"].diff().diff().diff())
-
-ax2 = f.add_subplot(122)
-plot_acf(df["use_transfused"].diff().diff().diff().dropna(), ax=ax2)
-plt.show()
-
-
-#%% Dickey-Fuller Test
-res = adfuller(df["use_transfused"].dropna())
-print("p-value: ", res[1])
-
-res = adfuller(df["use_transfused"].diff().dropna())
-print("p-value: ", res[1])
-
-res = adfuller(df["use_transfused"].diff().diff().dropna())
-print("p-value: ", res[1])
-
-res = adfuller(df["use_transfused"].diff().diff().diff().dropna())
-print("p-value: ", res[1])
-
-# Results:
-# p-value:  0.0936973558926073
-# p-value:  1.879297433670586e-25
-# p-value:  1.4284641410804533e-16
-# p-value:  1.762485024258537e-20
-# significance level: 0.05
-# so after one diff(), is good, data is stationary. above 0.5 is not stationary
-# so we assume order of differencing d = 1
-# from https://www.projectpro.io/article/how-to-build-arima-model-in-python/544
-
-
-
-#%% Computing "p" -- Order of autoregressive Model
-from statsmodels.graphics.tsaplots import plot_pacf
-
-f = plt.figure()
-ax1 = f.add_subplot(121)
-ax1.set_title("No differencing")
-ax1.plot(df["use_transfused"])
-
-ax2 = f.add_subplot(122)
-plot_pacf(df["use_transfused"].dropna(), ax=ax2)
-plt.show()
-
-
-f = plt.figure()
-ax1 = f.add_subplot(121)
-ax1.set_title("1st order differencing")
-ax1.plot(df["use_transfused"].diff())
-
-ax2 = f.add_subplot(122)
-plot_pacf(df["use_transfused"].diff().dropna(), ax=ax2)
-plt.show()
-
-
-f = plt.figure()
-ax1 = f.add_subplot(121)
-ax1.set_title("2nd order differencing")
-ax1.plot(df["use_transfused"].diff().diff())
-
-ax2 = f.add_subplot(122)
-plot_pacf(df["use_transfused"].diff().diff().dropna(), ax=ax2)
-plt.show()
-
-#In the pacf plot, we can see the first lag to be most significant.
-# so "p" = 1
-# Order of "q" = 1: 
-# looking at acf (not pacf), we can also see, only
-# first lag is most significant 
-
-# So d, p, q = 1
-
-
-#%% Fit arima model
-from statsmodels.tsa.arima.model import ARIMA
-
-arima_model = ARIMA(df["use_transfused"], order=(1,1,2))
-model = arima_model.fit()
-print(model.summary())
-
-#%% plot
-from statsmodels.graphics.tsaplots import plot_predict
-
-#Method 1
-fig, ax = plt.subplots()
-ax = df["use_transfused"].plot(ax=ax)
-plot_predict(model, ax=ax)
-plt.show()
-
-#Method 2
-pred = model.predict(dynamic=False)
-plt.plot(pred)
-plt.plot(df["use_transfused"])
-
-
-#%% SPLIT into training and test data
-# Same as above but withs split data
-
-from statsmodels.tsa.arima.model import ARIMA
-
-#function for getting first x% of rows:
-def get_split_rows(data, perc=0.8):
-    n_rows_train = int(len(data)*perc)
-    n_rows_test = len(data) - n_rows_train
-    return (n_rows_train, n_rows_test)
-
-split_n_rows = get_split_rows(df)
-training_set = get_first_percent_rows(df[:split_n_rows[0]])
-
-arima_model = ARIMA(training_set["use_transfused"], order=(1,1,2))
-model = arima_model.fit()
-print(model.summary())
-
-# plot
-from statsmodels.graphics.tsaplots import plot_predict
-fig, ax = plt.subplots()
-ax = df["use_transfused"].plot(ax=ax)
-plot_predict(model, ax=ax)
-plt.show()
-
-#%% Run prediction on test set:
-
-y_pred = pd.Series(model.forecast(split_n_rows[1])[0], index=df["use_transfused"][split_n_rows[0]:].index)
-y_true = df["use_transfused"][split_n_rows[0]]
-
-print(np.array(y_pred).astype(np.uint8))
-print(np.array(y_true))
-
-
-#%% Now trying from https://machinelearningmastery.com/arima-for-time-series-forecasting-with-python/
-from sklearn.metrics import mean_squared_error
-from math import sqrt
-
-# Split in train+test:
-series = df["use_transfused"]
-print(series)
-#%%
-# series.index = series.index.to_period('D')
-X = series.values
-perc = 0.66
-size = int(len(X) * perc)
-
-train, test = X[0:size], X[size:len(X)]
-history = [x for x in train]
-
-predictions = list()
-
-#Walk-forward validation
-for t in range(len(test)):
-    model = ARIMA(history, order=(1,1,2))
-    model_fit = model.fit()
-    output = model_fit.forecast()
-    yhat = output[0]
-    predictions.append(yhat)
-    obs = test[t]
-    print("predicted = %f, expected=%f" % (yhat, obs))
-
-#%% evaluate forecasts
-rmse = sqrt(mean_squared_error(test, predictions))
-print("Test RMSE: %.3f" % rmse)
-
-#plot forecasts against actual outcomes
-plt.plot(test)
-plt.plot(predictions, color="red")
-plt.show()
-
-

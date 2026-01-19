@@ -29,8 +29,8 @@ from pathlib import Path
 import json
 
 #delete:
-import tensorflow as tf
-tf.debugging.set_log_device_placement(True)
+# import tensorflow as tf
+# tf.debugging.set_log_device_placement(True)
 
 
 
@@ -49,6 +49,7 @@ class Model:
     def __init__(self, data: data_model.Data, id: int=None): #TODO: maybe add configuration?
         # TODO: change parameter of model to be of 'Data' type
         self.data = data
+        self.stats = {}
 
         #id for model run when using grid search
         if id == None:
@@ -1323,8 +1324,10 @@ class ModelLSTM(Model):
 
         #TODO: Write docstring
         all_windows_start = time.time()
+        self.stats["windows_num"] = len(self.validation_sets)
         for i, window in enumerate(self.validation_sets):
             print(f"Window {i}/{len(self.validation_sets)}")
+
             window_start = time.time()
             
             self.reset_states()
@@ -1339,10 +1342,15 @@ class ModelLSTM(Model):
             self.add_to_results()
             
             window_end = time.time()
+            
             print(f"Window {i} executed in {window_end - window_start}s\n")
 
+        self.stats["run_duration"] = all_windows_end - all_windows_start #TODO: move to setter?
         all_windows_end = time.time()
         print(f"\nTotal time for all windows {all_windows_end - all_windows_start}s")
+
+        self.add_stepwise_difference_LSTM()
+        self.get_stepwise_errors_LSTM()
 
         self.save_results()
 
@@ -1533,7 +1541,7 @@ class ModelLSTM(Model):
         # Creates n (=forecast_days) empty dataframes in a dict, each containing datetime index from day_n in the 
         # test/validation period.  
         #TODO: better to implement in __init__
-        if not hasattr(self, "result") or self.predictions == None:
+        if not hasattr(self, "predictions") or self.predictions == None or type(self.predictions) == list:
             self.predictions = {}
             for fc_day in range(self.forecast_days):
                 day_label = f"Day_{fc_day + 1}"
@@ -1559,7 +1567,7 @@ class ModelLSTM(Model):
             self.predictions[day_label].loc[forecast_date, "Mean"] = np.mean(day_predictions, axis=None) #alternative: axis=0)[0]
             self.predictions[day_label].loc[forecast_date, "Lower"] = np.percentile(day_predictions, 2.5, axis=None)
             self.predictions[day_label].loc[forecast_date, "Upper"] = np.percentile(day_predictions, 97.5, axis=None)
-
+            #self.predictions[day_label].loc[forecast_date, "Difference"] = self.predictions[day_label].loc[forecast_date, "Actual"] - self.predictions[day_label].loc[forecast_date, "Mean"]
 
     def reset_states(self):
         #resets all self values used in model_run
@@ -1607,8 +1615,8 @@ class ModelLSTM(Model):
             dir_name = f"{date}-{self.id}-lstm"
 
 
-        print(f"Creating directory {dir_name}")
         #make directory with name (see above)
+        print(f"Creating directory {dir_name}")
         print(f"Saving params to {dir_name}")
         file_path = "./results/"+dir_name
         Path(file_path).mkdir(parents=True, exist_ok=True)
@@ -1617,15 +1625,56 @@ class ModelLSTM(Model):
         with open("./results/"+dir_name+"/params.json", "w") as f:
             json.dump(self.params, f)
 
-        #make csv for every fc_day
+        #Save self.predictions (each df individually)
         print(f"Saving forecasts to {dir_name}")
         for fc_day, df in self.predictions.items():
             print("KEy: ", fc_day)
             print("Value: ", df)
             df.to_csv(path_or_buf=file_path+"/"+fc_day+".csv" ,sep=";")
 
+        #Save Error Values df
+        with open("./results/"+dir_name+"/forecast_errors.csv", "w") as f:
+            self.forecast_errors
+
         print(f"Finished saving file to {dir_name}")
 
+
+    def add_stepwise_difference_LSTM(self):
+        #TODO: change ModelARIMA/ModelSARIMA so that it can use this function as well.
+        # would need changes to structure of result.
+        
+        #This funcction adds a column with difference between Actual and Mean (=Prediction) to result dfs
+        #Put it directly inside add_to_results(), so shouldnt be needed anymore.
+        for fc_day, df in self.predictions.items():
+            df["Difference_2"] = df["Actual"] - df["Mean"] 
+
+    
+
+    def get_stepwise_errors_LSTM(self):
+        #since lstm currently has different architecture of dataframes for results, ill make a new
+        #function here. old (comparison, (s)arima) will be adjusted to be same as lstm model.
+
+
+        #initialize empty df with structure like stepwise_forecasts (cols, indices, no content)
+        forecast_steps = self.predictions.keys()
+        errors = ["ME", "MAE", "MedAE", "MAPE", "RMSE", "MASE", "MaxError"]
+
+        self.forecast_errors = pd.DataFrame(columns=errors, index=forecast_steps)
+
+        self.forecast_errors = pd.DataFrame()
+        for fc_day, df in self.predictions.items():
+
+            y_pred = df["Mean"].dropna()
+            y_true = df["Actual"].dropna()
+            
+            self.forecast_errors.loc[fc_day, "ME"] = np.median(y_pred - y_true) #median error -- shows bias (positive or negative)
+            self.forecast_errors.loc[fc_day, "MAE"] = metrics.mean_absolute_error(y_pred=y_pred, y_true=y_true)
+            self.forecast_errors.loc[fc_day, "MedAE"] = metrics.median_absolute_error(y_pred=y_pred, y_true=y_true)
+            self.forecast_errors.loc[fc_day, "MAPE"] = metrics.mean_absolute_percentage_error(y_pred=y_pred, y_true=y_true)
+            self.forecast_errors.loc[fc_day, "MSE"] = metrics.mean_squared_error(y_pred=y_pred, y_true=y_true)
+            self.forecast_errors.loc[fc_day, "RMSE"] = metrics.root_mean_squared_error(y_pred=y_pred, y_true=y_true)
+            # self.stepwise_forecast_errors.loc[fc_day, "MASE"] = metrics.mean_absolute_scaled_error(y_pred=y_pred, y_true=y_true) #MAE/
+            self.forecast_errors.loc[fc_day, "MaxError"] = metrics.max_error(y_pred=y_pred, y_true=y_true)
 
 
 #xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
