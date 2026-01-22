@@ -29,8 +29,11 @@ from pathlib import Path
 import json
 
 #delete:
-# import tensorflow as tf
+import tensorflow as tf
 # tf.debugging.set_log_device_placement(True)
+num_cores = 6
+tf.config.threading.set_intra_op_parallelism_threads(num_cores)
+tf.config.threading.set_inter_op_parallelism_threads(num_cores)
 
 
 
@@ -1345,8 +1348,8 @@ class ModelLSTM(Model):
             
             print(f"Window {i} executed in {window_end - window_start}s\n")
 
-        self.stats["run_duration"] = all_windows_end - all_windows_start #TODO: move to setter?
         all_windows_end = time.time()
+        self.stats["run_duration"] = all_windows_end - all_windows_start #TODO: move to setter?
         print(f"\nTotal time for all windows {all_windows_end - all_windows_start}s")
 
         self.add_stepwise_difference_LSTM()
@@ -1367,6 +1370,7 @@ class ModelLSTM(Model):
 
 
 
+    @timer_func
     def get_start_end_days(self, window):
         # since lstm works better with running multiple inputs (like a rolling window) and supplying y  so it can adjust
         # weights and biases more often. so we do an inner loop for the forecast window supplied by rolling/expanding window 
@@ -1381,6 +1385,7 @@ class ModelLSTM(Model):
 
 
 
+    @timer_func
     def get_data(self):
         """
         Using the input "window", which contains tuple of start + end date for both train and test sets, it returns
@@ -1419,6 +1424,7 @@ class ModelLSTM(Model):
 
 
 
+    @timer_func
     def scale_data(self):
         """
         Fits and transforms X/y train and test data with StandardScaler().
@@ -1455,7 +1461,7 @@ class ModelLSTM(Model):
         # self.y_test_scaled = self.y_test_scaled.reshape(1, self.y_test_scaled.shape[0])
 
 
-
+    @timer_func
     def get_training_test_set(self):
         #splits data of this window into many samples (basically nested rolling window for this window in buld_model)
         # into X_train with 3D shape of (samples, step_size=l)
@@ -1482,14 +1488,14 @@ class ModelLSTM(Model):
         self.y_test = np.reshape(self.y_test, (self.y_test.shape[1], self.y_test.shape[0])) #change (x, y) to (y, x) where y_test_scaled = (fc_window, 1)
 
         
-
+    @timer_func
     def build_model(self):
         #TODO: description
 
 
         inputs = Input(shape=(self.X_train.shape[1], self.X_train.shape[2])) #TODO: was 1, 2
         # inputs = Input(shape=(self.X_train_scaled.shape[1], self.X_train_scaled.shape[2])) #TODO: was 1, 2
-        x = layers.LSTM(self.params["memory_cells"], return_sequences=True)(inputs)
+        x = layers.LSTM(self.params["memory_cells"], return_sequences=True, unroll=True)(inputs)
         x = layers.LSTM(self.params["memory_cells"], return_sequences=False)(x)
         x = layers.Dense(2*self.params["memory_cells"], activation=self.params["activation_fct"])(x)
         #MC dropout
@@ -1500,11 +1506,18 @@ class ModelLSTM(Model):
 
         #make model
         self.model = keras.Model(inputs, outputs)
-        self.model.compile(optimizer=self.params["optimizer"], loss=self.params["loss"], metrics=[keras.metrics.RootMeanSquaredError()])
+        self.model.compile(
+            optimizer=self.params["optimizer"], 
+            loss=self.params["loss"], 
+            metrics=[keras.metrics.RootMeanSquaredError()]
+            #jit_compile=True
+        )
 
     
-
+    @timer_func
     def fit_model(self):
+        x_train = self.X_train.astype('float32')
+        y_train = self.y_train.astype('float32')
 
         self.model.fit(
             x=self.X_train, 
@@ -1513,22 +1526,56 @@ class ModelLSTM(Model):
             batch_size=self.params["batch_size"], 
             verbose=0
         )
+
+
+        # train_data = tf.data.Dataset.from_tensor_slices((self.X_train, self.y_train))
+    
+        # # Cache in memory and prefetch the next batch while the CPU is training
+        # train_data = train_data.cache().shuffle(1000).batch(self.params["batch_size"]).prefetch(tf.data.AUTOTUNE)
+
+        # self.model.fit(
+        #     train_data, 
+        #     epochs=self.params["epochs"], 
+        #     verbose=0
+        # )
     
 
     @timer_func
     def get_prediction_intervalls(self):
 
-        self.all_predictions = []
+        # self.all_predictions = []
 
-        for _ in range(self.params["pi_iterations"]):
-            self.all_predictions.append(
-                self.scaler_y.inverse_transform(self.model(self.X_test, training=True, verbose=0).numpy())
-            )
+        # for _ in range(self.params["pi_iterations"]):
+        #     self.all_predictions.append(
+        #         self.scaler_y.inverse_transform(self.model(self.X_test, training=True, verbose=0).numpy())
+        #     )
 
-        self.all_predictions = np.array(self.all_predictions)
+        # self.all_predictions = np.array(self.all_predictions)
+        
+        
+        # Repeat X_test 'n' times along a new axis
+        # If X_test is (samples, time, features), tiled becomes (iterations, samples, time, features)
+        n_iter = self.params["pi_iterations"]
+        
+        # Reshape X_test to (n_iter * samples, time, features)
+        # This processes all MC samples in one forward pass
+        x_tiled = np.tile(self.X_test, (n_iter, 1, 1))
+        
+        # Get all predictions in one batch
+        preds = self.model.predict(x_tiled, batch_size=self.params["batch_size"], verbose=0)
+        
+        # Reshape back to (iterations, samples, forecast_days)
+        preds = preds.reshape(n_iter, self.X_test.shape[0], self.forecast_days)
+        
+        # Inverse transform (optimized to handle the shape)
+        self.all_predictions = np.array([
+            self.scaler_y.inverse_transform(p).astype("float32") for p in preds
+        ])
 
 
 
+
+    @timer_func
     def add_to_results(self):
         #Add to existing self.predictions dictionary. self.predictions contains n keys of name "Day_"n_i where n=len(fc_days)
         # with the value of a dataframe with columns Actual, Mean, Lower, Upper and datetime index. 
@@ -1569,8 +1616,13 @@ class ModelLSTM(Model):
             self.predictions[day_label].loc[forecast_date, "Upper"] = np.percentile(day_predictions, 97.5, axis=None)
             #self.predictions[day_label].loc[forecast_date, "Difference"] = self.predictions[day_label].loc[forecast_date, "Actual"] - self.predictions[day_label].loc[forecast_date, "Mean"]
 
+    @timer_func
     def reset_states(self):
         #resets all self values used in model_run
+        if hasattr(self, 'model') and self.model is not None:
+                # This helps break internal references
+                del self.model
+
 
         #resets all states generated by tensorflow-keras
         keras.backend.clear_session()
@@ -1604,6 +1656,8 @@ class ModelLSTM(Model):
         #dont reset self.predictionss
 
 
+
+    @timer_func
     def save_results(self):
         #Creates new directory where it saves self.params as a json and every dataframe for the results
 
@@ -1639,6 +1693,7 @@ class ModelLSTM(Model):
         print(f"Finished saving file to {dir_name}")
 
 
+    @timer_func
     def add_stepwise_difference_LSTM(self):
         #TODO: change ModelARIMA/ModelSARIMA so that it can use this function as well.
         # would need changes to structure of result.
@@ -1649,7 +1704,7 @@ class ModelLSTM(Model):
             df["Difference_2"] = df["Actual"] - df["Mean"] 
 
     
-
+    @timer_func
     def get_stepwise_errors_LSTM(self):
         #since lstm currently has different architecture of dataframes for results, ill make a new
         #function here. old (comparison, (s)arima) will be adjusted to be same as lstm model.

@@ -549,7 +549,7 @@ lstm_m.set_validation_rolling_window(
     #TODO: add option to choose days for train and test period.
     train_percent=0.95,#9,#985,#975,
     test_len=14, 
-    start_date="2022-10-01"
+    start_date="2022-01-01"
 )
 
 #%%
@@ -558,7 +558,7 @@ lstm_m.set_model_parameters(
 
     memory_cells=64,#64
     epochs=20,#20
-    batch_size=32, #32
+    batch_size=64, #32
     dropout=0.5,
     pi_iterations=100, #100 #how often to run, to calculate prediction intervals
     optimizer="adam",
@@ -612,7 +612,7 @@ for grid in search_grid[0:10]:
     print(search_grid_dict)
 
 
-    
+
 # #TODO: grid search -- this is what a possible list of dicts could look like (missing exog_cols):
 # grid_search_lstm = [{
 #     "validation_type" : "rolling",
