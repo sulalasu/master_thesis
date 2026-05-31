@@ -853,7 +853,7 @@ def plot_one_day_ahead_Diff(df: pd.DataFrame, day_ahead: int=1, diff_color=True,
 
 
 
-def plot_one_day_ahead_Diff_bars(df: pd.DataFrame, day_ahead: int=1, diff_color=True, start_date: str=rconf.START_DATE, end_date: str=None, 
+def plot_one_day_ahead_Diff_bars(df: pd.DataFrame, day_ahead: int=1, diff_color=True, start_date: str=rconf.START_DATE, end_date: str=None, return_fig = False,
                        ax=None, save_fig=True, img_path: str=rconf.IMG_PATH, img_name: str="Day_one_fc_with_Diff_bars")->None:
     """plots one X-day-ahead forecast with difference filled between fc and actual as BARS
     can set time range and which day ahead (usually one-day-ahead)
@@ -934,7 +934,7 @@ def plot_one_day_ahead_Diff_bars(df: pd.DataFrame, day_ahead: int=1, diff_color=
         return fig, ax
 
 
-def plot_one_day_ahead_CI(df, day_ahead: int=1, start_date: str=rconf.START_DATE, end_date: str=None, 
+def plot_one_day_ahead_CI(df, day_ahead: int=1, start_date: str=rconf.START_DATE, end_date: str=None, return_fig = False,
                        ax=None, save_fig=True, img_path: str=rconf.IMG_PATH, img_name: str="Day_one_fc_with_CI")->None:
     """plots one X-day-ahead forecast with upper and lower limits
     can set time range and which day ahead (usually one-day-ahead)
@@ -964,6 +964,7 @@ def plot_one_day_ahead_CI(df, day_ahead: int=1, start_date: str=rconf.START_DATE
     #Plotting
     if ax is None:
         fig, ax = plt.subplots(figsize=(20, 8), constrained_layout=True)
+        return_fig = False
     else:
         fig = ax.get_figure()
         return_fig = False
